@@ -10,24 +10,24 @@ export const letterSoundItems: LetterSoundItem[] = [
   { id: 'ls_06', prompt: 'Tap the letter that makes the short /e/ sound.', targetSound: 'e', options: ['a', 'e', 'i', 'o'], correctAnswer: 'e' },
 ];
 
-// Slide 3: Phoneme Blending items - with audioText for TTS
+// Slide 3: Phoneme Blending items
 export const phonemeBlendItems: PhonemeBlendItem[] = [
-  { id: 'pb_01', prompt: 'Listen to the sounds and pick the word', audioText: 'c... a... t', options: ['cat', 'cot', 'cut', 'kit'], correctAnswer: 'cat', distractorType: 'vowel_confusion' },
-  { id: 'pb_02', prompt: 'Listen to the sounds and pick the word', audioText: 'd... o... g', options: ['dig', 'dog', 'dug', 'bog'], correctAnswer: 'dog', distractorType: 'vowel_confusion' },
-  { id: 'pb_03', prompt: 'Listen to the sounds and pick the word', audioText: 's... u... n', options: ['sun', 'sin', 'son', 'run'], correctAnswer: 'sun', distractorType: 'vowel_confusion' },
-  { id: 'pb_04', prompt: 'Listen to the sounds and pick the word', audioText: 'p... i... g', options: ['peg', 'pig', 'big', 'bag'], correctAnswer: 'pig', distractorType: 'consonant_confusion' },
-  { id: 'pb_05', prompt: 'Listen to the sounds and pick the word', audioText: 'b... e... d', options: ['bed', 'bad', 'bid', 'bud'], correctAnswer: 'bed', distractorType: 'vowel_confusion' },
-  { id: 'pb_06', prompt: 'Listen to the sounds and pick the word', audioText: 'h... o... p', options: ['hip', 'hop', 'hap', 'hat'], correctAnswer: 'hop', distractorType: 'vowel_confusion' },
+  { id: 'pb_01', prompt: 'Listen to the sounds and pick the word: /c/ - /a/ - /t/', audioId: 'blend_cat', options: ['cat', 'cot', 'cut', 'kit'], correctAnswer: 'cat', distractorType: 'vowel_confusion' },
+  { id: 'pb_02', prompt: 'Listen to the sounds and pick the word: /d/ - /o/ - /g/', audioId: 'blend_dog', options: ['dig', 'dog', 'dug', 'bog'], correctAnswer: 'dog', distractorType: 'vowel_confusion' },
+  { id: 'pb_03', prompt: 'Listen to the sounds and pick the word: /s/ - /u/ - /n/', audioId: 'blend_sun', options: ['sun', 'sin', 'son', 'run'], correctAnswer: 'sun', distractorType: 'vowel_confusion' },
+  { id: 'pb_04', prompt: 'Listen to the sounds and pick the word: /p/ - /i/ - /g/', audioId: 'blend_pig', options: ['peg', 'pig', 'big', 'bag'], correctAnswer: 'pig', distractorType: 'consonant_confusion' },
+  { id: 'pb_05', prompt: 'Listen to the sounds and pick the word: /b/ - /e/ - /d/', audioId: 'blend_bed', options: ['bed', 'bad', 'bid', 'bud'], correctAnswer: 'bed', distractorType: 'vowel_confusion' },
+  { id: 'pb_06', prompt: 'Listen to the sounds and pick the word: /h/ - /o/ - /p/', audioId: 'blend_hop', options: ['hip', 'hop', 'hap', 'hat'], correctAnswer: 'hop', distractorType: 'vowel_confusion' },
 ];
 
-// Slide 4: Phoneme Segmentation items - with word for TTS
+// Slide 4: Phoneme Segmentation items
 export const phonemeSegmentItems: PhonemeSegmentItem[] = [
-  { id: 'ps_01', prompt: 'How many sounds do you hear in this word?', word: 'cat', correctCount: 3 },
-  { id: 'ps_02', prompt: 'How many sounds do you hear in this word?', word: 'ship', correctCount: 3 },
-  { id: 'ps_03', prompt: 'How many sounds do you hear in this word?', word: 'stop', correctCount: 4 },
-  { id: 'ps_04', prompt: 'How many sounds do you hear in this word?', word: 'me', correctCount: 2 },
-  { id: 'ps_05', prompt: 'How many sounds do you hear in this word?', word: 'splash', correctCount: 5 },
-  { id: 'ps_06', prompt: 'How many sounds do you hear in this word?', word: 'tree', correctCount: 3 },
+  { id: 'ps_01', prompt: 'How many sounds do you hear in "cat"?', audioId: 'seg_cat', correctCount: 3 },
+  { id: 'ps_02', prompt: 'How many sounds do you hear in "ship"?', audioId: 'seg_ship', correctCount: 3 },
+  { id: 'ps_03', prompt: 'How many sounds do you hear in "stop"?', audioId: 'seg_stop', correctCount: 4 },
+  { id: 'ps_04', prompt: 'How many sounds do you hear in "me"?', audioId: 'seg_me', correctCount: 2 },
+  { id: 'ps_05', prompt: 'How many sounds do you hear in "splash"?', audioId: 'seg_splash', correctCount: 5 },
+  { id: 'ps_06', prompt: 'How many sounds do you hear in "tree"?', audioId: 'seg_tree', correctCount: 3 },
 ];
 
 // Slide 5: RAN Grid items (4x5 = 20 items)
@@ -40,28 +40,28 @@ export const ranGridItems = [
 
 // Slide 6: Real Word Reading items
 export const realWordItems: WordItem[] = [
-  { id: 'rw_01', word: 'jump', options: ['jump', 'jamp', 'jomp', 'jumb'], correctSpelling: 'jump' },
-  { id: 'rw_02', word: 'friend', options: ['frend', 'friend', 'freind', 'frined'], correctSpelling: 'friend' },
-  { id: 'rw_03', word: 'school', options: ['skool', 'shool', 'school', 'scool'], correctSpelling: 'school' },
-  { id: 'rw_04', word: 'because', options: ['becuse', 'because', 'becaus', 'becase'], correctSpelling: 'because' },
-  { id: 'rw_05', word: 'through', options: ['through', 'throu', 'threw', 'thrugh'], correctSpelling: 'through' },
-  { id: 'rw_06', word: 'people', options: ['peple', 'pepole', 'people', 'poeple'], correctSpelling: 'people' },
-  { id: 'rw_07', word: 'beautiful', options: ['beatiful', 'beautiful', 'beutiful', 'beautful'], correctSpelling: 'beautiful' },
-  { id: 'rw_08', word: 'different', options: ['different', 'diffrent', 'diferent', 'diffirent'], correctSpelling: 'different' },
-  { id: 'rw_09', word: 'question', options: ['questoin', 'qestion', 'question', 'queston'], correctSpelling: 'question' },
-  { id: 'rw_10', word: 'important', options: ['importent', 'important', 'importnat', 'improtant'], correctSpelling: 'important' },
+  { id: 'rw_01', word: 'jump', audioId: 'word_jump', options: ['jump', 'jamp', 'jomp', 'jumb'], correctSpelling: 'jump' },
+  { id: 'rw_02', word: 'friend', audioId: 'word_friend', options: ['frend', 'friend', 'freind', 'frined'], correctSpelling: 'friend' },
+  { id: 'rw_03', word: 'school', audioId: 'word_school', options: ['skool', 'shool', 'school', 'scool'], correctSpelling: 'school' },
+  { id: 'rw_04', word: 'because', audioId: 'word_because', options: ['becuse', 'because', 'becaus', 'becase'], correctSpelling: 'because' },
+  { id: 'rw_05', word: 'through', audioId: 'word_through', options: ['through', 'throu', 'threw', 'thrugh'], correctSpelling: 'through' },
+  { id: 'rw_06', word: 'people', audioId: 'word_people', options: ['peple', 'pepole', 'people', 'poeple'], correctSpelling: 'people' },
+  { id: 'rw_07', word: 'beautiful', audioId: 'word_beautiful', options: ['beatiful', 'beautiful', 'beutiful', 'beautful'], correctSpelling: 'beautiful' },
+  { id: 'rw_08', word: 'different', audioId: 'word_different', options: ['different', 'diffrent', 'diferent', 'diffirent'], correctSpelling: 'different' },
+  { id: 'rw_09', word: 'question', audioId: 'word_question', options: ['questoin', 'qestion', 'question', 'queston'], correctSpelling: 'question' },
+  { id: 'rw_10', word: 'important', audioId: 'word_important', options: ['importent', 'important', 'importnat', 'improtant'], correctSpelling: 'important' },
 ];
 
 // Slide 7: Nonword Reading items
 export const nonwordItems: WordItem[] = [
-  { id: 'nw_01', word: 'blim', options: ['blim', 'blem', 'blom', 'blum'], correctSpelling: 'blim' },
-  { id: 'nw_02', word: 'grop', options: ['grop', 'grup', 'grep', 'grip'], correctSpelling: 'grop' },
-  { id: 'nw_03', word: 'strek', options: ['strak', 'strik', 'strek', 'struk'], correctSpelling: 'strek' },
-  { id: 'nw_04', word: 'flonk', options: ['flank', 'flink', 'flonk', 'flunk'], correctSpelling: 'flonk' },
-  { id: 'nw_05', word: 'plave', options: ['plive', 'plave', 'plove', 'pluve'], correctSpelling: 'plave' },
-  { id: 'nw_06', word: 'thrumb', options: ['thramb', 'thremb', 'thrimb', 'thrumb'], correctSpelling: 'thrumb' },
-  { id: 'nw_07', word: 'spling', options: ['spling', 'splang', 'splung', 'spleng'], correctSpelling: 'spling' },
-  { id: 'nw_08', word: 'dwent', options: ['dwant', 'dwint', 'dwent', 'dwont'], correctSpelling: 'dwent' },
+  { id: 'nw_01', word: 'blim', audioId: 'nonword_blim', options: ['blim', 'blem', 'blom', 'blum'], correctSpelling: 'blim' },
+  { id: 'nw_02', word: 'grop', audioId: 'nonword_grop', options: ['grop', 'grup', 'grep', 'grip'], correctSpelling: 'grop' },
+  { id: 'nw_03', word: 'strek', audioId: 'nonword_strek', options: ['strak', 'strik', 'strek', 'struk'], correctSpelling: 'strek' },
+  { id: 'nw_04', word: 'flonk', audioId: 'nonword_flonk', options: ['flank', 'flink', 'flonk', 'flunk'], correctSpelling: 'flonk' },
+  { id: 'nw_05', word: 'plave', audioId: 'nonword_plave', options: ['plive', 'plave', 'plove', 'pluve'], correctSpelling: 'plave' },
+  { id: 'nw_06', word: 'thrumb', audioId: 'nonword_thrumb', options: ['thramb', 'thremb', 'thrimb', 'thrumb'], correctSpelling: 'thrumb' },
+  { id: 'nw_07', word: 'spling', audioId: 'nonword_spling', options: ['spling', 'splang', 'splung', 'spleng'], correctSpelling: 'spling' },
+  { id: 'nw_08', word: 'dwent', audioId: 'nonword_dwent', options: ['dwant', 'dwint', 'dwent', 'dwont'], correctSpelling: 'dwent' },
 ];
 
 // Slide 8: Passage for fluency reading
@@ -70,9 +70,6 @@ export const fluencyPassage = `The sun was setting behind the old oak tree when 
 As she walked deeper into the forest, Maya noticed something unusual. Small blue flowers were growing along the edges of the trail, glowing faintly in the dim light. She had never seen anything like them before. Her grandmother's journal mentioned these flowers — they only bloomed once every hundred years.
 
 Maya's heart raced with excitement. She was close now, very close to discovering the secret her grandmother had protected for so many years. The forest grew quieter, as if holding its breath, waiting to see what Maya would do next.`;
-
-// Word count for fluency calculation
-export const fluencyPassageWordCount = fluencyPassage.split(/\s+/).length;
 
 // Slide 9: Comprehension Questions
 export const comprehensionQuestions: ComprehensionQuestion[] = [
