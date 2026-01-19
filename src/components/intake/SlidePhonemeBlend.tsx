@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useIntakeStore } from '@/store/intakeStore';
 import { phonemeBlendItems } from '@/data/intakeItems';
-import type { Attempt } from '@/types/intake';
-import { Volume2 } from 'lucide-react';
+import type { TaskResult } from '@/types/intake';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { Volume2, Loader2 } from 'lucide-react';
 
 const SlidePhonemeBlend = () => {
   const [currentItem, setCurrentItem] = useState(0);
   const [itemStartTime, setItemStartTime] = useState(Date.now());
-  const { addAttempt, getTimeOnScreen } = useIntakeStore();
+  const { addPhonemeBlend } = useIntakeStore();
+  const { speak, isLoading, isPlaying } = useTextToSpeech();
 
   const item = phonemeBlendItems[currentItem];
   const isComplete = currentItem >= phonemeBlendItems.length;
@@ -17,45 +19,24 @@ const SlidePhonemeBlend = () => {
   }, [currentItem]);
 
   const handlePlayAudio = () => {
-    // Mock audio playback - in production, this would play actual audio
-    console.log(`Playing audio: ${item.audioId}`);
+    // Speak the phoneme sounds slowly
+    speak(item.audioText);
   };
 
   const handleChoice = (choice: string) => {
     const responseTime = Date.now() - itemStartTime;
     const isCorrect = choice === item.correctAnswer;
 
-    const attempt: Attempt = {
-      screen_id: `PHONEME_BLEND_${String(currentItem + 1).padStart(2, '0')}`,
-      task_type: 'phoneme_blending_mcq',
+    const result: TaskResult = {
       item_id: item.id,
-      presented_at: itemStartTime / 1000,
-      response: {
-        choice_id: choice,
-        text: null,
-        audio_blob_id: null,
-      },
-      timing: {
-        rt_ms: responseTime,
-        time_on_screen_ms: getTimeOnScreen(),
-      },
-      scoring: {
-        is_correct: isCorrect,
-        error_type: isCorrect ? null : item.distractorType,
-        partial_credit: 0,
-        expected: item.correctAnswer,
-      },
-      features: {
-        distractor_type: item.distractorType,
-        difficulty_level: 2,
-      },
-      quality: {
-        asr_confidence: null,
-        device_lag_ms: 25,
-      },
+      task_type: 'phoneme_blending_mcq',
+      response: choice,
+      expected: item.correctAnswer,
+      is_correct: isCorrect,
+      response_time_ms: responseTime,
     };
 
-    addAttempt(attempt);
+    addPhonemeBlend(result);
     setCurrentItem((prev) => prev + 1);
   };
 
@@ -86,10 +67,15 @@ const SlidePhonemeBlend = () => {
           <button
             type="button"
             onClick={handlePlayAudio}
+            disabled={isLoading || isPlaying}
             className="audio-btn"
           >
-            <Volume2 className="w-5 h-5" />
-            <span>Play Sounds</span>
+            {isLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Volume2 className="w-5 h-5" />
+            )}
+            <span>{isPlaying ? 'Playing...' : 'Play Sounds'}</span>
           </button>
         </div>
 

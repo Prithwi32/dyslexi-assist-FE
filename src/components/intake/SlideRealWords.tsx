@@ -1,98 +1,86 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useIntakeStore } from '@/store/intakeStore';
 import { realWordItems } from '@/data/intakeItems';
-import type { Attempt } from '@/types/intake';
-import { Volume2, Mic, MicOff } from 'lucide-react';
+import type { TaskResult } from '@/types/intake';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { useSpeechToText } from '@/hooks/useSpeechToText';
+import { Volume2, Mic, MicOff, Loader2 } from 'lucide-react';
 
 const SlideRealWords = () => {
   const [currentItem, setCurrentItem] = useState(0);
   const [itemStartTime, setItemStartTime] = useState(Date.now());
-  const { modalitiesEnabled, addAttempt, getTimeOnScreen } = useIntakeStore();
+  const { micEnabled, addRealWord } = useIntakeStore();
+  
+  const { speak, isLoading: ttsLoading, isPlaying } = useTextToSpeech();
+  const { 
+    isRecording, 
+    isTranscribing,
+    startRecording, 
+    stopAndTranscribe,
+    reset: resetRecording
+  } = useSpeechToText();
 
-  const useVoiceMode = modalitiesEnabled.mic;
+  const useVoiceMode = micEnabled;
   const item = realWordItems[currentItem];
   const isComplete = currentItem >= realWordItems.length;
 
   useEffect(() => {
     setItemStartTime(Date.now());
-  }, [currentItem]);
+    resetRecording();
+  }, [currentItem, resetRecording]);
 
   const handlePlayAudio = () => {
-    console.log(`Playing audio: ${item.audioId}`);
+    speak(item.word);
   };
 
-  const handleVoiceAttempt = () => {
-    const responseTime = Date.now() - itemStartTime;
+  const handleStartRecording = async () => {
+    await startRecording();
+  };
 
-    const attempt: Attempt = {
-      screen_id: `REAL_WORD_${String(currentItem + 1).padStart(2, '0')}`,
-      task_type: 'real_word_reading_voice',
+  const handleStopAndSubmit = useCallback(async () => {
+    const responseTime = Date.now() - itemStartTime;
+    
+    let transcription: string | null = null;
+    let isCorrect: boolean | null = null;
+    
+    if (isRecording) {
+      const result = await stopAndTranscribe();
+      transcription = result?.text || null;
+      
+      // Simple matching - check if the transcription contains the word
+      if (transcription) {
+        isCorrect = transcription.toLowerCase().includes(item.word.toLowerCase());
+      }
+    }
+
+    const taskResult: TaskResult = {
       item_id: item.id,
-      presented_at: itemStartTime / 1000,
-      response: {
-        choice_id: 'voice_attempted',
-        text: item.word,
-        audio_blob_id: 'mock_blob',
-      },
-      timing: {
-        rt_ms: responseTime,
-        time_on_screen_ms: getTimeOnScreen(),
-      },
-      scoring: {
-        is_correct: null, // Can't score without ASR
-        error_type: null,
-        partial_credit: 0,
-        expected: item.word,
-      },
-      features: {
-        distractor_type: null,
-        difficulty_level: 2,
-      },
-      quality: {
-        asr_confidence: null,
-        device_lag_ms: 20,
-      },
+      task_type: 'real_word_reading_voice',
+      response: transcription || 'voice_attempted',
+      expected: item.word,
+      is_correct: isCorrect,
+      response_time_ms: responseTime,
+      transcription,
     };
 
-    addAttempt(attempt);
+    addRealWord(taskResult);
     setCurrentItem((prev) => prev + 1);
-  };
+  }, [itemStartTime, isRecording, stopAndTranscribe, item, addRealWord]);
 
   const handleChoice = (choice: string) => {
     const responseTime = Date.now() - itemStartTime;
     const isCorrect = choice === item.correctSpelling;
 
-    const attempt: Attempt = {
-      screen_id: `REAL_WORD_${String(currentItem + 1).padStart(2, '0')}`,
-      task_type: 'real_word_reading_mcq',
+    const taskResult: TaskResult = {
       item_id: item.id,
-      presented_at: itemStartTime / 1000,
-      response: {
-        choice_id: choice,
-        text: null,
-        audio_blob_id: null,
-      },
-      timing: {
-        rt_ms: responseTime,
-        time_on_screen_ms: getTimeOnScreen(),
-      },
-      scoring: {
-        is_correct: isCorrect,
-        error_type: isCorrect ? null : 'spelling_confusion',
-        partial_credit: 0,
-        expected: item.correctSpelling || item.word,
-      },
-      features: {
-        distractor_type: 'visual_similarity',
-        difficulty_level: 2,
-      },
-      quality: {
-        asr_confidence: null,
-        device_lag_ms: 20,
-      },
+      task_type: 'real_word_reading_mcq',
+      response: choice,
+      expected: item.correctSpelling || item.word,
+      is_correct: isCorrect,
+      response_time_ms: responseTime,
     };
 
-    addAttempt(attempt);
+    addRealWord(taskResult);
     setCurrentItem((prev) => prev + 1);
   };
 
@@ -112,7 +100,7 @@ const SlideRealWords = () => {
         <div className="rule-thin mx-auto max-w-xs mb-4" />
         <p className="helper-text max-w-xl mx-auto">
           {useVoiceMode 
-            ? "Read the word out loud, then tap Next."
+            ? "Read the word out loud. Press the microphone to start recording."
             : "Listen to the word, then choose the correct spelling."
           }
         </p>
@@ -138,19 +126,52 @@ const SlideRealWords = () => {
         </div>
 
         {useVoiceMode ? (
-          // Voice mode: show word to read
+          // Voice mode: show word to read and record
           <>
             <div className="text-center mb-8 py-8 bg-background border-2 border-foreground">
               <span className="text-5xl font-headline font-bold">{item.word}</span>
             </div>
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={handleVoiceAttempt}
-                className="btn-newspaper-primary"
-              >
-                I've read it — Next
-              </button>
+            <div className="text-center space-y-4">
+              {!isRecording ? (
+                <button
+                  type="button"
+                  onClick={handleStartRecording}
+                  disabled={isTranscribing}
+                  className="btn-newspaper-primary inline-flex items-center gap-2"
+                >
+                  <Mic className="w-5 h-5" />
+                  <span>Start Recording</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleStopAndSubmit}
+                  className="btn-newspaper inline-flex items-center gap-2 animate-pulse"
+                >
+                  <Mic className="w-5 h-5 text-destructive" />
+                  <span>Stop & Submit</span>
+                </button>
+              )}
+              
+              {isTranscribing && (
+                <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Processing...</span>
+                </div>
+              )}
+              
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isRecording) stopAndTranscribe();
+                    handleStopAndSubmit();
+                  }}
+                  className="text-muted-foreground hover:text-foreground underline text-sm"
+                >
+                  Skip this word
+                </button>
+              </div>
             </div>
           </>
         ) : (
@@ -160,10 +181,15 @@ const SlideRealWords = () => {
               <button
                 type="button"
                 onClick={handlePlayAudio}
+                disabled={ttsLoading || isPlaying}
                 className="audio-btn"
               >
-                <Volume2 className="w-5 h-5" />
-                <span>Play Word</span>
+                {ttsLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Volume2 className="w-5 h-5" />
+                )}
+                <span>{isPlaying ? 'Playing...' : 'Play Word'}</span>
               </button>
             </div>
 
