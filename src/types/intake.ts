@@ -1,96 +1,96 @@
 // Dyslexi-Assist Intake Data Types
-// Matches the required JSON export schema exactly
+// Simplified and intuitive structure
 
-export interface ModalitiesEnabled {
-  mic: boolean;
-  eye: boolean;
-}
-
-export interface UIPreferences {
-  font_size: 'small' | 'medium' | 'large';
-  theme: 'light' | 'dark' | 'soft';
-  highlight_mode: 'word' | 'line' | 'none';
-  tts_default_rate: number;
-  preferred_mode: 'listening_first' | 'silent_reading' | 'reading_aloud' | 'mixed';
-}
-
-export interface AttemptResponse {
-  choice_id: string | null;
-  text: string | null;
-  audio_blob_id: string | null;
-}
-
-export interface AttemptTiming {
-  rt_ms: number;
-  time_on_screen_ms: number;
-}
-
-export interface AttemptScoring {
-  is_correct: boolean | null;
-  error_type: string | null;
-  partial_credit: number;
-  expected: string | null;
-}
-
-export interface AttemptFeatures {
-  distractor_type: string | null;
-  difficulty_level: number;
-}
-
-export interface AttemptQuality {
-  asr_confidence: number | null;
-  device_lag_ms: number;
-}
-
-export interface Attempt {
-  screen_id: string;
-  task_type: string;
-  item_id: string;
-  presented_at: number;
-  response: AttemptResponse;
-  timing: AttemptTiming;
-  scoring: AttemptScoring;
-  features: AttemptFeatures;
-  quality: AttemptQuality;
-}
-
-export interface DerivedProfile {
-  phonological_awareness_score: number | null;
-  ran_speed_score: number | null;
-  decoding_accuracy_score: number | null;
-  decoding_fluency_score: number | null;
-  comprehension_literal: number | null;
-  comprehension_inferential: number | null;
-  vocab_in_context: number | null;
-  confidence_calibration: number | null;
-}
-
-export interface Flags {
-  avoid_reading_aloud: boolean;
-  high_anxiety_signals: boolean;
-  low_asr_quality: boolean;
-}
-
-export interface SelfReportData {
-  hardest_aspects: string[];
-  other_text: string | null;
-}
+// ============= Core Types =============
 
 export interface IntakePayload {
+  // Session metadata
+  session_id: string;
   user_id: string;
-  intake_session_id: string;
   created_at: string;
-  locale: string;
-  grade_band: 'primary' | 'middle_school' | 'high_school' | 'adult';
-  modalities_enabled: ModalitiesEnabled;
-  ui_preferences: UIPreferences;
-  attempts: Attempt[];
-  derived_profile_v1: DerivedProfile;
-  flags: Flags;
-  self_report?: SelfReportData;
+  
+  // User settings
+  settings: {
+    locale: string;
+    grade_band: 'primary' | 'middle_school' | 'high_school' | 'adult';
+    mic_enabled: boolean;
+    preferences: {
+      font_size: 'small' | 'medium' | 'large';
+      theme: 'light' | 'dark' | 'soft';
+      highlight_mode: 'word' | 'line' | 'none';
+      reading_mode: 'listening_first' | 'silent_reading' | 'reading_aloud' | 'mixed';
+    };
+  };
+  
+  // Assessment results by section
+  results: {
+    letter_sounds: TaskResult[];
+    phoneme_blending: TaskResult[];
+    phoneme_segmentation: TaskResult[];
+    rapid_naming: RapidNamingResult | null;
+    real_words: TaskResult[];
+    nonwords: TaskResult[];
+    passage: PassageResult | null;
+    comprehension: TaskResult[];
+    self_report: SelfReport;
+  };
+  
+  // Summary scores (computed later by backend)
+  scores?: ScoreSummary;
+  
+  // Flags for personalization
+  flags: {
+    avoid_reading_aloud: boolean;
+    high_anxiety: boolean;
+  };
 }
 
-// Slide-specific item types
+// ============= Task Results =============
+
+export interface TaskResult {
+  item_id: string;
+  task_type: string;
+  response: string | null;           // What the user chose/said
+  expected: string | null;           // Correct answer
+  is_correct: boolean | null;        // null if not scored (e.g., voice mode without ASR)
+  response_time_ms: number;
+  transcription?: string | null;     // STT result if voice mode
+  confidence?: number | null;        // ASR confidence 0-1
+}
+
+export interface RapidNamingResult {
+  mode: 'voice' | 'tap';
+  total_time_ms: number;
+  items_count: number;
+  errors: number;                    // Mistaps or missed items
+  transcription?: string | null;
+}
+
+export interface PassageResult {
+  mode: 'voice' | 'listen';
+  duration_seconds: number;
+  word_count: number;
+  transcription?: string | null;
+  words_per_minute?: number | null;
+}
+
+export interface SelfReport {
+  challenges: string[];              // What feels hardest
+  other_notes: string | null;        // Free text
+}
+
+// ============= Score Summary =============
+
+export interface ScoreSummary {
+  phonological_awareness: number | null;
+  rapid_naming_speed: number | null;
+  decoding_accuracy: number | null;
+  reading_fluency: number | null;
+  comprehension: number | null;
+}
+
+// ============= Data Item Types (for slides) =============
+
 export interface LetterSoundItem {
   id: string;
   prompt: string;
@@ -102,7 +102,7 @@ export interface LetterSoundItem {
 export interface PhonemeBlendItem {
   id: string;
   prompt: string;
-  audioId: string;
+  audioText: string;           // Text to speak via TTS
   options: string[];
   correctAnswer: string;
   distractorType: string;
@@ -111,15 +111,14 @@ export interface PhonemeBlendItem {
 export interface PhonemeSegmentItem {
   id: string;
   prompt: string;
-  audioId: string;
+  word: string;                // Word to speak
   correctCount: number;
 }
 
 export interface WordItem {
   id: string;
   word: string;
-  audioId: string;
-  options?: string[]; // For no-voice mode
+  options?: string[];
   correctSpelling?: string;
 }
 
@@ -131,10 +130,25 @@ export interface ComprehensionQuestion {
   questionType: 'literal' | 'inferential' | 'vocab_in_context';
 }
 
-// User session
+// ============= Legacy Types (deprecated) =============
+
 export interface UserSession {
   userId: string;
   username: string;
   isLoggedIn: boolean;
   createdAt: string;
+}
+
+// For backwards compatibility during migration
+export interface ModalitiesEnabled {
+  mic: boolean;
+  eye: boolean;
+}
+
+export interface UIPreferences {
+  font_size: 'small' | 'medium' | 'large';
+  theme: 'light' | 'dark' | 'soft';
+  highlight_mode: 'word' | 'line' | 'none';
+  tts_default_rate: number;
+  preferred_mode: 'listening_first' | 'silent_reading' | 'reading_aloud' | 'mixed';
 }
