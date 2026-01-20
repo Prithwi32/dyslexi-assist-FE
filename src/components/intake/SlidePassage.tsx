@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useIntakeStore } from '@/store/intakeStore';
-import { fluencyPassage } from '@/data/intakeItems';
-import type { Attempt } from '@/types/intake';
+import { fluencyPassage, fluencyPassageWordCount } from '@/data/intakeItems';
+import type { PassageResult } from '@/types/intake';
 import { Volume2, Mic, MicOff, Play, Square, Clock } from 'lucide-react';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 const SlidePassage = () => {
   const [isStarted, setIsStarted] = useState(false);
@@ -10,8 +11,9 @@ const SlidePassage = () => {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   
-  const { modalitiesEnabled, setPassageData, addAttempt } = useIntakeStore();
-  const useVoiceMode = modalitiesEnabled.mic;
+  const { micEnabled, setPassage } = useIntakeStore();
+  const { speak, isLoading } = useTextToSpeech();
+  const useVoiceMode = micEnabled;
   const maxTime = 45; // seconds
 
   useEffect(() => {
@@ -35,51 +37,24 @@ const SlidePassage = () => {
     setStartTime(Date.now());
   };
 
-  const handlePlayAudio = () => {
-    console.log('Playing TTS for passage...');
-    // In production, this would play TTS
+  const handlePlayAudio = async () => {
+    await speak(fluencyPassage);
   };
 
   const handleStop = () => {
     if (startTime) {
       const totalTime = (Date.now() - startTime) / 1000;
+      const wpm = useVoiceMode ? Math.round((fluencyPassageWordCount / totalTime) * 60) : null;
       
-      setPassageData({
-        durationS: totalTime,
+      const result: PassageResult = {
         mode: useVoiceMode ? 'voice' : 'listen',
-      });
-
-      const attempt: Attempt = {
-        screen_id: 'PASSAGE_FLUENCY',
-        task_type: 'passage_reading_fluency',
-        item_id: 'passage_maya_v1',
-        presented_at: startTime / 1000,
-        response: {
-          choice_id: null,
-          text: null,
-          audio_blob_id: useVoiceMode ? 'mock_passage_audio' : null,
-        },
-        timing: {
-          rt_ms: totalTime * 1000,
-          time_on_screen_ms: totalTime * 1000,
-        },
-        scoring: {
-          is_correct: null,
-          error_type: null,
-          partial_credit: 0,
-          expected: null,
-        },
-        features: {
-          distractor_type: null,
-          difficulty_level: 3,
-        },
-        quality: {
-          asr_confidence: null,
-          device_lag_ms: 15,
-        },
+        duration_seconds: totalTime,
+        word_count: fluencyPassageWordCount,
+        transcription: null,
+        words_per_minute: wpm,
       };
 
-      addAttempt(attempt);
+      setPassage(result);
       setIsComplete(true);
     }
   };
@@ -138,10 +113,11 @@ const SlidePassage = () => {
               <button
                 type="button"
                 onClick={handlePlayAudio}
+                disabled={isLoading}
                 className="audio-btn"
               >
                 <Volume2 className="w-5 h-5" />
-                <span>Listen</span>
+                <span>{isLoading ? 'Loading...' : 'Listen'}</span>
               </button>
             )}
             <button

@@ -22,14 +22,14 @@ const SlideConsent = ({ onComplete }: SlideConsentProps) => {
   const { 
     locale, 
     gradeBand, 
-    modalitiesEnabled, 
+    micEnabled,
     setLocale, 
     setGradeBand, 
-    setModalitiesEnabled 
+    setMicEnabled,
   } = useIntakeStore();
 
   const handleMicChoice = (enabled: boolean) => {
-    setModalitiesEnabled({ mic: enabled });
+    setMicEnabled(enabled);
   };
 
   return (
@@ -55,7 +55,7 @@ const SlideConsent = ({ onComplete }: SlideConsentProps) => {
             type="button"
             onClick={() => handleMicChoice(true)}
             className={`flex-1 py-3 px-4 border-2 border-foreground font-headline font-bold transition-colors ${
-              modalitiesEnabled.mic 
+              micEnabled 
                 ? 'bg-foreground text-background' 
                 : 'bg-transparent hover:bg-accent'
             }`}
@@ -66,7 +66,7 @@ const SlideConsent = ({ onComplete }: SlideConsentProps) => {
             type="button"
             onClick={() => handleMicChoice(false)}
             className={`flex-1 py-3 px-4 border-2 border-foreground font-headline font-bold transition-colors ${
-              !modalitiesEnabled.mic 
+              !micEnabled 
                 ? 'bg-foreground text-background' 
                 : 'bg-transparent hover:bg-accent'
             }`}

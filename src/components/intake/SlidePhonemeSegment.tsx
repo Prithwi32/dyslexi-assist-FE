@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useIntakeStore } from '@/store/intakeStore';
 import { phonemeSegmentItems } from '@/data/intakeItems';
-import type { Attempt } from '@/types/intake';
+import type { TaskResult } from '@/types/intake';
 import { Volume2 } from 'lucide-react';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 const SlidePhonemeSegment = () => {
   const [currentItem, setCurrentItem] = useState(0);
   const [itemStartTime, setItemStartTime] = useState(Date.now());
-  const { addAttempt, getTimeOnScreen } = useIntakeStore();
+  const { addPhonemeSegment, getTimeOnScreen } = useIntakeStore();
+  const { speak, isLoading } = useTextToSpeech();
 
   const item = phonemeSegmentItems[currentItem];
   const isComplete = currentItem >= phonemeSegmentItems.length;
@@ -16,45 +18,24 @@ const SlidePhonemeSegment = () => {
     setItemStartTime(Date.now());
   }, [currentItem]);
 
-  const handlePlayAudio = () => {
-    console.log(`Playing audio: ${item.audioId}`);
+  const handlePlayAudio = async () => {
+    await speak(item.word);
   };
 
   const handleChoice = (count: number) => {
     const responseTime = Date.now() - itemStartTime;
     const isCorrect = count === item.correctCount;
 
-    const attempt: Attempt = {
-      screen_id: `PHONEME_SEGMENT_${String(currentItem + 1).padStart(2, '0')}`,
-      task_type: 'phoneme_segmentation_mcq',
+    const result: TaskResult = {
       item_id: item.id,
-      presented_at: itemStartTime / 1000,
-      response: {
-        choice_id: String(count),
-        text: null,
-        audio_blob_id: null,
-      },
-      timing: {
-        rt_ms: responseTime,
-        time_on_screen_ms: getTimeOnScreen(),
-      },
-      scoring: {
-        is_correct: isCorrect,
-        error_type: isCorrect ? null : 'count_error',
-        partial_credit: 0,
-        expected: String(item.correctCount),
-      },
-      features: {
-        distractor_type: 'phoneme_count',
-        difficulty_level: item.correctCount > 3 ? 3 : 2,
-      },
-      quality: {
-        asr_confidence: null,
-        device_lag_ms: 20,
-      },
+      task_type: 'phoneme_segmentation',
+      response: String(count),
+      expected: String(item.correctCount),
+      is_correct: isCorrect,
+      response_time_ms: responseTime,
     };
 
-    addAttempt(attempt);
+    addPhonemeSegment(result);
     setCurrentItem((prev) => prev + 1);
   };
 
@@ -85,10 +66,11 @@ const SlidePhonemeSegment = () => {
           <button
             type="button"
             onClick={handlePlayAudio}
+            disabled={isLoading}
             className="audio-btn"
           >
             <Volume2 className="w-5 h-5" />
-            <span>Play Word</span>
+            <span>{isLoading ? 'Playing...' : 'Play Word'}</span>
           </button>
         </div>
 

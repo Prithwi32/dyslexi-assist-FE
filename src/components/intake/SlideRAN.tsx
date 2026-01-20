@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useIntakeStore } from '@/store/intakeStore';
 import { ranGridItems } from '@/data/intakeItems';
-import type { Attempt } from '@/types/intake';
+import type { RapidNamingResult } from '@/types/intake';
 import { Mic, MicOff, Play, Square } from 'lucide-react';
 
 const SlideRAN = () => {
@@ -11,8 +11,8 @@ const SlideRAN = () => {
   const [tappedCells, setTappedCells] = useState<Set<number>>(new Set());
   const [misTaps, setMisTaps] = useState(0);
   
-  const { modalitiesEnabled, setRanData, addAttempt } = useIntakeStore();
-  const useVoiceMode = modalitiesEnabled.mic;
+  const { micEnabled, setRapidNaming } = useIntakeStore();
+  const useVoiceMode = micEnabled;
 
   const handleStart = () => {
     setIsStarted(true);
@@ -25,46 +25,18 @@ const SlideRAN = () => {
     if (startTime) {
       const totalTime = Date.now() - startTime;
       
-      setRanData({
-        totalTimeMs: totalTime,
-        mode: useVoiceMode ? 'voice' : 'quiet',
-        misTaps: misTaps,
-      });
-
-      const attempt: Attempt = {
-        screen_id: 'RAN_TASK',
-        task_type: 'rapid_automatized_naming',
-        item_id: 'ran_grid_v1',
-        presented_at: startTime / 1000,
-        response: {
-          choice_id: null,
-          text: null,
-          audio_blob_id: useVoiceMode ? 'mock_audio_blob' : null,
-        },
-        timing: {
-          rt_ms: totalTime,
-          time_on_screen_ms: totalTime,
-        },
-        scoring: {
-          is_correct: null,
-          error_type: null,
-          partial_credit: 0,
-          expected: null,
-        },
-        features: {
-          distractor_type: null,
-          difficulty_level: 2,
-        },
-        quality: {
-          asr_confidence: null,
-          device_lag_ms: 15,
-        },
+      const result: RapidNamingResult = {
+        mode: useVoiceMode ? 'voice' : 'tap',
+        total_time_ms: totalTime,
+        items_count: ranGridItems.length,
+        errors: misTaps,
+        transcription: null,
       };
 
-      addAttempt(attempt);
+      setRapidNaming(result);
       setIsComplete(true);
     }
-  }, [startTime, useVoiceMode, misTaps, setRanData, addAttempt]);
+  }, [startTime, useVoiceMode, misTaps, setRapidNaming]);
 
   const handleCellTap = (index: number) => {
     if (!isStarted || isComplete) return;

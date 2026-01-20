@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useIntakeStore } from '@/store/intakeStore';
 import { comprehensionQuestions } from '@/data/intakeItems';
-import type { Attempt } from '@/types/intake';
+import type { TaskResult } from '@/types/intake';
 
 const SlideComprehension = () => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [itemStartTime, setItemStartTime] = useState(Date.now());
-  const { addAttempt, getTimeOnScreen } = useIntakeStore();
+  const { addComprehension, getTimeOnScreen } = useIntakeStore();
 
   const question = comprehensionQuestions[currentQuestion];
   const isComplete = currentQuestion >= comprehensionQuestions.length;
@@ -19,37 +19,16 @@ const SlideComprehension = () => {
     const responseTime = Date.now() - itemStartTime;
     const isCorrect = choice === question.correctAnswer;
 
-    const attempt: Attempt = {
-      screen_id: `COMPREHENSION_${String(currentQuestion + 1).padStart(2, '0')}`,
-      task_type: `comprehension_${question.questionType}`,
+    const result: TaskResult = {
       item_id: question.id,
-      presented_at: itemStartTime / 1000,
-      response: {
-        choice_id: choice,
-        text: null,
-        audio_blob_id: null,
-      },
-      timing: {
-        rt_ms: responseTime,
-        time_on_screen_ms: getTimeOnScreen(),
-      },
-      scoring: {
-        is_correct: isCorrect,
-        error_type: isCorrect ? null : `${question.questionType}_error`,
-        partial_credit: 0,
-        expected: question.correctAnswer,
-      },
-      features: {
-        distractor_type: question.questionType,
-        difficulty_level: question.questionType === 'literal' ? 1 : question.questionType === 'inferential' ? 2 : 3,
-      },
-      quality: {
-        asr_confidence: null,
-        device_lag_ms: 20,
-      },
+      task_type: `comprehension_${question.questionType}`,
+      response: choice,
+      expected: question.correctAnswer,
+      is_correct: isCorrect,
+      response_time_ms: responseTime,
     };
 
-    addAttempt(attempt);
+    addComprehension(result);
     setCurrentQuestion((prev) => prev + 1);
   };
 

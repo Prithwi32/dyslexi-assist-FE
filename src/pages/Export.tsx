@@ -50,7 +50,7 @@ const Export = () => {
 
   const handleDownload = () => {
     if (payload) {
-      const filename = `dyslexi-assist-intake-${payload.intake_session_id.slice(0, 8)}.json`;
+      const filename = `dyslexi-assist-intake-${payload.session_id.slice(0, 8)}.json`;
       downloadJson(payload, filename);
       toast({
         title: "Downloaded",
@@ -85,6 +85,22 @@ const Export = () => {
   const handleStartOver = () => {
     resetIntake();
     navigate('/intake');
+  };
+
+  // Calculate total items from results
+  const getTotalItems = () => {
+    if (!payload) return 0;
+    const { results } = payload;
+    return (
+      results.letter_sounds.length +
+      results.phoneme_blending.length +
+      results.phoneme_segmentation.length +
+      results.real_words.length +
+      results.nonwords.length +
+      results.comprehension.length +
+      (results.rapid_naming ? 1 : 0) +
+      (results.passage ? 1 : 0)
+    );
   };
 
   if (!session || !payload) {
@@ -151,22 +167,22 @@ const Export = () => {
           {/* Summary stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="newspaper-card text-center">
-              <span className="text-3xl font-headline font-bold">{payload.attempts.length}</span>
+              <span className="text-3xl font-headline font-bold">{getTotalItems()}</span>
               <p className="text-sm text-muted-foreground">Items Completed</p>
             </div>
             <div className="newspaper-card text-center">
-              <span className="text-3xl font-headline font-bold">{payload.locale}</span>
+              <span className="text-3xl font-headline font-bold">{payload.settings.locale}</span>
               <p className="text-sm text-muted-foreground">Locale</p>
             </div>
             <div className="newspaper-card text-center">
               <span className="text-3xl font-headline font-bold capitalize">
-                {payload.grade_band.replace('_', ' ')}
+                {payload.settings.grade_band.replace('_', ' ')}
               </span>
               <p className="text-sm text-muted-foreground">Grade Band</p>
             </div>
             <div className="newspaper-card text-center">
               <span className="text-3xl font-headline font-bold">
-                {payload.modalities_enabled.mic ? 'Yes' : 'No'}
+                {payload.settings.mic_enabled ? 'Yes' : 'No'}
               </span>
               <p className="text-sm text-muted-foreground">Mic Enabled</p>
             </div>
