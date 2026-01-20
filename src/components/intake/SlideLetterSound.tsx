@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useIntakeStore } from '@/store/intakeStore';
 import { letterSoundItems } from '@/data/intakeItems';
-import type { Attempt } from '@/types/intake';
+import type { TaskResult } from '@/types/intake';
 
 const SlideLetterSound = () => {
   const [currentItem, setCurrentItem] = useState(0);
   const [itemStartTime, setItemStartTime] = useState(Date.now());
-  const { addAttempt, getTimeOnScreen } = useIntakeStore();
+  const { addLetterSound, getTimeOnScreen } = useIntakeStore();
 
   const item = letterSoundItems[currentItem];
   const isComplete = currentItem >= letterSoundItems.length;
@@ -19,37 +19,16 @@ const SlideLetterSound = () => {
     const responseTime = Date.now() - itemStartTime;
     const isCorrect = choice === item.correctAnswer;
 
-    const attempt: Attempt = {
-      screen_id: `LETTER_SOUND_${String(currentItem + 1).padStart(2, '0')}`,
-      task_type: 'letter_sound_mcq',
+    const result: TaskResult = {
       item_id: item.id,
-      presented_at: itemStartTime / 1000,
-      response: {
-        choice_id: choice,
-        text: null,
-        audio_blob_id: null,
-      },
-      timing: {
-        rt_ms: responseTime,
-        time_on_screen_ms: getTimeOnScreen(),
-      },
-      scoring: {
-        is_correct: isCorrect,
-        error_type: isCorrect ? null : 'letter_confusion',
-        partial_credit: 0,
-        expected: item.correctAnswer,
-      },
-      features: {
-        distractor_type: 'visual_similarity',
-        difficulty_level: 1,
-      },
-      quality: {
-        asr_confidence: null,
-        device_lag_ms: 20,
-      },
+      task_type: 'letter_sound',
+      response: choice,
+      expected: item.correctAnswer,
+      is_correct: isCorrect,
+      response_time_ms: responseTime,
     };
 
-    addAttempt(attempt);
+    addLetterSound(result);
     setCurrentItem((prev) => prev + 1);
   };
 

@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useIntakeStore } from '@/store/intakeStore';
 import { nonwordItems } from '@/data/intakeItems';
-import type { Attempt } from '@/types/intake';
+import type { TaskResult } from '@/types/intake';
 import { Volume2, Mic, MicOff } from 'lucide-react';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 const SlideNonwords = () => {
   const [currentItem, setCurrentItem] = useState(0);
   const [itemStartTime, setItemStartTime] = useState(Date.now());
-  const { modalitiesEnabled, addAttempt, getTimeOnScreen } = useIntakeStore();
+  const { micEnabled, addNonword, getTimeOnScreen } = useIntakeStore();
+  const { speak, isLoading } = useTextToSpeech();
 
-  const useVoiceMode = modalitiesEnabled.mic;
+  const useVoiceMode = micEnabled;
   const item = nonwordItems[currentItem];
   const isComplete = currentItem >= nonwordItems.length;
 
@@ -17,44 +19,23 @@ const SlideNonwords = () => {
     setItemStartTime(Date.now());
   }, [currentItem]);
 
-  const handlePlayAudio = () => {
-    console.log(`Playing audio: ${item.audioId}`);
+  const handlePlayAudio = async () => {
+    await speak(item.word);
   };
 
   const handleVoiceAttempt = () => {
     const responseTime = Date.now() - itemStartTime;
 
-    const attempt: Attempt = {
-      screen_id: `NONWORD_${String(currentItem + 1).padStart(2, '0')}`,
-      task_type: 'nonword_reading_voice',
+    const result: TaskResult = {
       item_id: item.id,
-      presented_at: itemStartTime / 1000,
-      response: {
-        choice_id: 'voice_attempted',
-        text: item.word,
-        audio_blob_id: 'mock_blob',
-      },
-      timing: {
-        rt_ms: responseTime,
-        time_on_screen_ms: getTimeOnScreen(),
-      },
-      scoring: {
-        is_correct: null,
-        error_type: null,
-        partial_credit: 0,
-        expected: item.word,
-      },
-      features: {
-        distractor_type: null,
-        difficulty_level: 3,
-      },
-      quality: {
-        asr_confidence: null,
-        device_lag_ms: 20,
-      },
+      task_type: 'nonword_reading_voice',
+      response: 'voice_attempted',
+      expected: item.word,
+      is_correct: null, // Cannot determine without ASR
+      response_time_ms: responseTime,
     };
 
-    addAttempt(attempt);
+    addNonword(result);
     setCurrentItem((prev) => prev + 1);
   };
 
@@ -62,37 +43,16 @@ const SlideNonwords = () => {
     const responseTime = Date.now() - itemStartTime;
     const isCorrect = choice === item.correctSpelling;
 
-    const attempt: Attempt = {
-      screen_id: `NONWORD_${String(currentItem + 1).padStart(2, '0')}`,
-      task_type: 'nonword_reading_mcq',
+    const result: TaskResult = {
       item_id: item.id,
-      presented_at: itemStartTime / 1000,
-      response: {
-        choice_id: choice,
-        text: null,
-        audio_blob_id: null,
-      },
-      timing: {
-        rt_ms: responseTime,
-        time_on_screen_ms: getTimeOnScreen(),
-      },
-      scoring: {
-        is_correct: isCorrect,
-        error_type: isCorrect ? null : 'decoding_error',
-        partial_credit: 0,
-        expected: item.correctSpelling || item.word,
-      },
-      features: {
-        distractor_type: 'phonetic_similarity',
-        difficulty_level: 3,
-      },
-      quality: {
-        asr_confidence: null,
-        device_lag_ms: 20,
-      },
+      task_type: 'nonword_reading_mcq',
+      response: choice,
+      expected: item.correctSpelling || item.word,
+      is_correct: isCorrect,
+      response_time_ms: responseTime,
     };
 
-    addAttempt(attempt);
+    addNonword(result);
     setCurrentItem((prev) => prev + 1);
   };
 
@@ -158,10 +118,11 @@ const SlideNonwords = () => {
               <button
                 type="button"
                 onClick={handlePlayAudio}
+                disabled={isLoading}
                 className="audio-btn"
               >
                 <Volume2 className="w-5 h-5" />
-                <span>Play Word</span>
+                <span>{isLoading ? 'Playing...' : 'Play Word'}</span>
               </button>
             </div>
 

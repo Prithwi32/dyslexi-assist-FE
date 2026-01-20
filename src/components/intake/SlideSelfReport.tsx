@@ -4,19 +4,19 @@ import { selfReportOptions } from '@/data/intakeItems';
 
 const SlideSelfReport = () => {
   const { selfReport, setSelfReport } = useIntakeStore();
-  const [otherText, setOtherText] = useState(selfReport.other_text || '');
+  const [otherText, setOtherText] = useState(selfReport.other_notes || '');
 
   const toggleOption = (option: string) => {
-    const current = selfReport.hardest_aspects;
+    const current = selfReport.challenges;
     const updated = current.includes(option)
       ? current.filter((o) => o !== option)
       : [...current, option];
-    setSelfReport({ hardest_aspects: updated });
+    setSelfReport({ challenges: updated });
   };
 
   const handleOtherChange = (text: string) => {
     setOtherText(text);
-    setSelfReport({ other_text: text || null });
+    setSelfReport({ other_notes: text || null });
   };
 
   return (
@@ -37,16 +37,16 @@ const SlideSelfReport = () => {
               type="button"
               onClick={() => toggleOption(option)}
               className={`w-full text-left p-4 border-2 border-foreground transition-colors ${
-                selfReport.hardest_aspects.includes(option)
+                selfReport.challenges.includes(option)
                   ? 'bg-foreground text-background'
                   : 'bg-transparent hover:bg-accent'
               }`}
             >
               <div className="flex items-center gap-3">
                 <div className={`w-5 h-5 border-2 border-current flex items-center justify-center ${
-                  selfReport.hardest_aspects.includes(option) ? 'bg-background' : ''
+                  selfReport.challenges.includes(option) ? 'bg-background' : ''
                 }`}>
-                  {selfReport.hardest_aspects.includes(option) && (
+                  {selfReport.challenges.includes(option) && (
                     <span className="text-foreground font-bold">✓</span>
                   )}
                 </div>

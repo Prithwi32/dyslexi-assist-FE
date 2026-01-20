@@ -33,36 +33,27 @@ export function validatePayload(payload: IntakePayload): { valid: boolean; error
     errors.push('Missing user_id');
   }
   
-  if (!payload.intake_session_id) {
-    errors.push('Missing intake_session_id');
+  if (!payload.session_id) {
+    errors.push('Missing session_id');
   }
   
   if (!payload.created_at) {
     errors.push('Missing created_at timestamp');
   }
   
-  if (!payload.locale) {
-    errors.push('Missing locale');
+  if (!payload.settings) {
+    errors.push('Missing settings');
+  } else {
+    if (!payload.settings.locale) {
+      errors.push('Missing locale in settings');
+    }
+    if (!payload.settings.grade_band) {
+      errors.push('Missing grade_band in settings');
+    }
   }
   
-  if (!payload.grade_band) {
-    errors.push('Missing grade_band');
-  }
-  
-  if (!payload.modalities_enabled) {
-    errors.push('Missing modalities_enabled');
-  }
-  
-  if (!payload.ui_preferences) {
-    errors.push('Missing ui_preferences');
-  }
-  
-  if (!Array.isArray(payload.attempts)) {
-    errors.push('attempts must be an array');
-  }
-  
-  if (!payload.derived_profile_v1) {
-    errors.push('Missing derived_profile_v1');
+  if (!payload.results) {
+    errors.push('Missing results');
   }
   
   if (!payload.flags) {

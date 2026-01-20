@@ -26,7 +26,7 @@ const highlightModes = [
 ];
 
 const SlidePreferences = () => {
-  const { uiPreferences, setUIPreferences } = useIntakeStore();
+  const { preferences, setPreferences } = useIntakeStore();
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -48,16 +48,16 @@ const SlidePreferences = () => {
             <button
               key={mode.value}
               type="button"
-              onClick={() => setUIPreferences({ preferred_mode: mode.value as any })}
+              onClick={() => setPreferences({ reading_mode: mode.value as any })}
               className={`p-4 border-2 border-foreground text-left transition-colors ${
-                uiPreferences.preferred_mode === mode.value
+                preferences.reading_mode === mode.value
                   ? 'bg-foreground text-background'
                   : 'bg-transparent hover:bg-accent'
               }`}
             >
               <span className="font-headline font-bold block">{mode.label}</span>
               <span className={`text-sm ${
-                uiPreferences.preferred_mode === mode.value
+                preferences.reading_mode === mode.value
                   ? 'text-background/80'
                   : 'text-muted-foreground'
               }`}>
@@ -78,9 +78,9 @@ const SlidePreferences = () => {
             <button
               key={size.value}
               type="button"
-              onClick={() => setUIPreferences({ font_size: size.value as any })}
+              onClick={() => setPreferences({ font_size: size.value as any })}
               className={`flex-1 py-3 px-4 border-2 border-foreground font-headline font-bold transition-colors ${
-                uiPreferences.font_size === size.value
+                preferences.font_size === size.value
                   ? 'bg-foreground text-background'
                   : 'bg-transparent hover:bg-accent'
               }`}
@@ -101,9 +101,9 @@ const SlidePreferences = () => {
             <button
               key={theme.value}
               type="button"
-              onClick={() => setUIPreferences({ theme: theme.value as any })}
+              onClick={() => setPreferences({ theme: theme.value as any })}
               className={`flex-1 py-3 px-4 border-2 border-foreground font-headline font-bold transition-colors ${
-                uiPreferences.theme === theme.value
+                preferences.theme === theme.value
                   ? 'bg-foreground text-background'
                   : 'bg-transparent hover:bg-accent'
               }`}
@@ -124,16 +124,16 @@ const SlidePreferences = () => {
             <button
               key={mode.value}
               type="button"
-              onClick={() => setUIPreferences({ highlight_mode: mode.value as any })}
+              onClick={() => setPreferences({ highlight_mode: mode.value as any })}
               className={`p-4 border-2 border-foreground text-center transition-colors ${
-                uiPreferences.highlight_mode === mode.value
+                preferences.highlight_mode === mode.value
                   ? 'bg-foreground text-background'
                   : 'bg-transparent hover:bg-accent'
               }`}
             >
               <span className="font-headline font-bold block">{mode.label}</span>
               <span className={`text-sm ${
-                uiPreferences.highlight_mode === mode.value
+                preferences.highlight_mode === mode.value
                   ? 'text-background/80'
                   : 'text-muted-foreground'
               }`}>
