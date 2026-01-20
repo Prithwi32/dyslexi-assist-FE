@@ -9,14 +9,12 @@ interface UseTTSOptions {
 export function useTextToSpeech(options: UseTTSOptions = {}) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const cacheRef = useRef<Map<string, string>>(new Map());
 
   const stop = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
+    // Stop Web Speech API
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
     }
     setIsPlaying(false);
   }, []);
@@ -29,56 +27,60 @@ export function useTextToSpeech(options: UseTTSOptions = {}) {
     setIsLoading(true);
 
     try {
-      // Check cache first
-      let audioUrl = cacheRef.current.get(text);
-
-      if (!audioUrl) {
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({ text }),
-          }
-        );
-
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({}));
-          throw new Error(error.error || 'TTS request failed');
+      // Use browser's built-in Web Speech API (free, no API key needed)
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.85; // Slightly slower for clarity
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        
+        // Wait for voices to load
+        let voices = window.speechSynthesis.getVoices();
+        if (voices.length === 0) {
+          await new Promise<void>((resolve) => {
+            window.speechSynthesis.onvoiceschanged = () => {
+              voices = window.speechSynthesis.getVoices();
+              resolve();
+            };
+            // Timeout fallback
+            setTimeout(resolve, 100);
+          });
+        }
+        
+        // Try to use a good English voice
+        const englishVoice = voices.find(
+          (v) => v.lang.startsWith('en') && v.name.includes('Google')
+        ) || voices.find(
+          (v) => v.lang.startsWith('en') && v.localService
+        ) || voices.find((v) => v.lang.startsWith('en'));
+        
+        if (englishVoice) {
+          utterance.voice = englishVoice;
         }
 
-        const audioBlob = await response.blob();
-        audioUrl = URL.createObjectURL(audioBlob);
-        cacheRef.current.set(text, audioUrl);
-      }
-
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-
-      audio.onplay = () => {
+        setIsLoading(false);
         setIsPlaying(true);
         options.onStart?.();
-      };
 
-      audio.onended = () => {
-        setIsPlaying(false);
-        options.onEnd?.();
-      };
-
-      audio.onerror = () => {
-        setIsPlaying(false);
-        options.onError?.('Audio playback failed');
-      };
-
-      await audio.play();
+        await new Promise<void>((resolve, reject) => {
+          utterance.onend = () => {
+            setIsPlaying(false);
+            options.onEnd?.();
+            resolve();
+          };
+          utterance.onerror = (e) => {
+            setIsPlaying(false);
+            reject(new Error(e.error));
+          };
+          window.speechSynthesis.speak(utterance);
+        });
+      } else {
+        throw new Error('Speech synthesis not supported in this browser');
+      }
     } catch (error) {
       console.error('TTS error:', error);
       options.onError?.(error instanceof Error ? error.message : 'TTS failed');
-    } finally {
+      setIsPlaying(false);
       setIsLoading(false);
     }
   }, [stop, options]);
