@@ -1,0 +1,274 @@
+/* Google Font loaded via index.html for better performance */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dyslexi-Assist Design System - Old Newspaper Theme */
+
+@layer base {
+  :root {
+    /* Paper colors - aged newspaper palette */
+    --background: 39 45% 90%;
+    --foreground: 30 10% 15%;
+    
+    --card: 40 40% 92%;
+    --card-foreground: 30 10% 15%;
+    
+    --popover: 40 40% 94%;
+    --popover-foreground: 30 10% 15%;
+    
+    /* Primary - rich black ink */
+    --primary: 30 10% 12%;
+    --primary-foreground: 40 40% 94%;
+    
+    /* Secondary - sepia tone */
+    --secondary: 35 30% 85%;
+    --secondary-foreground: 30 10% 15%;
+    
+    /* Muted - faded paper */
+    --muted: 38 25% 88%;
+    --muted-foreground: 30 8% 40%;
+    
+    /* Accent - warm aged tone */
+    --accent: 32 35% 82%;
+    --accent-foreground: 30 10% 12%;
+    
+    /* Success - muted green (not harsh) */
+    --success: 145 30% 35%;
+    --success-foreground: 40 40% 94%;
+    
+    /* Warning - amber (accessible, not red) */
+    --warning: 38 80% 50%;
+    --warning-foreground: 30 10% 12%;
+    
+    --destructive: 30 60% 40%;
+    --destructive-foreground: 40 40% 94%;
+    
+    /* Borders - ink lines */
+    --border: 30 15% 30%;
+    --input: 38 25% 85%;
+    --ring: 30 10% 20%;
+    
+    --radius: 0.125rem;
+    
+    /* Custom newspaper variables */
+    --paper-cream: 39 45% 90%;
+    --paper-aged: 38 40% 85%;
+    --ink-black: 30 10% 12%;
+    --ink-faded: 30 8% 35%;
+    --rule-thick: 3px;
+    --rule-thin: 1px;
+    
+    /* Typography */
+    --font-headline: 'Playfair Display', Georgia, 'Times New Roman', serif;
+    --font-body: Georgia, 'Times New Roman', serif;
+    --line-height-relaxed: 1.8;
+    --letter-spacing-headline: -0.02em;
+  }
+
+  .dark {
+    --background: 30 15% 10%;
+    --foreground: 38 30% 85%;
+    
+    --card: 30 12% 14%;
+    --card-foreground: 38 30% 85%;
+    
+    --popover: 30 12% 12%;
+    --popover-foreground: 38 30% 85%;
+    
+    --primary: 38 35% 85%;
+    --primary-foreground: 30 15% 10%;
+    
+    --secondary: 30 12% 20%;
+    --secondary-foreground: 38 30% 85%;
+    
+    --muted: 30 10% 18%;
+    --muted-foreground: 38 15% 60%;
+    
+    --accent: 32 15% 22%;
+    --accent-foreground: 38 30% 85%;
+    
+    --success: 145 25% 45%;
+    --success-foreground: 30 15% 10%;
+    
+    --warning: 38 70% 55%;
+    --warning-foreground: 30 15% 10%;
+    
+    --destructive: 30 50% 45%;
+    --destructive-foreground: 38 30% 85%;
+    
+    --border: 38 15% 30%;
+    --input: 30 10% 20%;
+    --ring: 38 20% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    font-size: 18px; /* Large base for accessibility */
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    line-height: var(--line-height-relaxed);
+    background-image: 
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E"),
+      linear-gradient(to bottom, hsl(39 45% 92%), hsl(38 40% 86%));
+    background-blend-mode: overlay, normal;
+    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  /* Newspaper headline styles */
+  .headline {
+    font-family: var(--font-headline);
+    font-weight: 900;
+    letter-spacing: var(--letter-spacing-headline);
+    line-height: 1.1;
+    @apply text-foreground;
+  }
+  
+  .headline-lg {
+    @apply headline text-4xl md:text-5xl;
+  }
+  
+  .headline-md {
+    @apply headline text-2xl md:text-3xl;
+  }
+  
+  .headline-sm {
+    @apply headline text-xl md:text-2xl;
+  }
+  
+  /* Newspaper rule/divider */
+  .rule-thick {
+    @apply border-t-[3px] border-foreground;
+  }
+  
+  .rule-thin {
+    @apply border-t border-foreground/30;
+  }
+  
+  .rule-double {
+    @apply border-t-[3px] border-b border-foreground pb-1;
+  }
+  
+  /* Newspaper column card */
+  .newspaper-card {
+    @apply bg-card border-2 border-foreground p-4 md:p-6;
+    box-shadow: 
+      4px 4px 0 hsl(var(--foreground) / 0.15),
+      inset 0 0 30px hsl(var(--foreground) / 0.03);
+  }
+  
+  .newspaper-card-clipped {
+    @apply newspaper-card;
+    clip-path: polygon(
+      0% 2%, 3% 0%, 97% 0%, 100% 3%,
+      100% 98%, 98% 100%, 2% 100%, 0% 97%
+    );
+  }
+  
+  /* Button variants */
+  .btn-newspaper {
+    @apply px-6 py-3 font-headline font-bold text-lg border-2 border-foreground 
+           bg-background hover:bg-foreground hover:text-background 
+           transition-colors duration-200 uppercase tracking-wide;
+  }
+  
+  .btn-newspaper-primary {
+    @apply btn-newspaper bg-foreground text-background 
+           hover:bg-background hover:text-foreground;
+  }
+  
+  .btn-newspaper-outline {
+    @apply btn-newspaper bg-transparent;
+  }
+  
+  /* Form inputs newspaper style */
+  .input-newspaper {
+    @apply w-full px-4 py-3 border-2 border-foreground bg-input 
+           font-body text-lg focus:outline-none focus:ring-2 focus:ring-foreground/50
+           placeholder:text-muted-foreground;
+  }
+  
+  /* Progress indicator newspaper style */
+  .progress-newspaper {
+    @apply h-3 bg-muted border border-foreground overflow-hidden;
+  }
+  
+  .progress-newspaper-fill {
+    @apply h-full bg-foreground transition-all duration-300;
+  }
+  
+  /* Helper text - supportive messaging */
+  .helper-text {
+    @apply text-muted-foreground italic text-base leading-relaxed;
+  }
+  
+  /* MCQ option cards */
+  .mcq-option {
+    @apply newspaper-card cursor-pointer transition-all duration-200
+           hover:bg-accent hover:scale-[1.02]
+           focus:outline-none focus:ring-2 focus:ring-foreground;
+  }
+  
+  .mcq-option-selected {
+    @apply bg-foreground text-background;
+  }
+  
+  /* Slide container */
+  .slide-container {
+    @apply max-w-3xl mx-auto px-4 py-8;
+  }
+  
+  /* Audio play button */
+  .audio-btn {
+    @apply inline-flex items-center gap-2 px-4 py-2 
+           border-2 border-foreground bg-accent 
+           hover:bg-foreground hover:text-background
+           font-headline font-bold transition-colors;
+  }
+  
+  /* Grid for RAN task */
+  .ran-grid {
+    @apply grid grid-cols-5 gap-2 p-4 border-2 border-foreground bg-card;
+  }
+  
+  .ran-cell {
+    @apply aspect-square flex items-center justify-center 
+           text-2xl font-bold border border-foreground/30 
+           bg-background cursor-pointer 
+           hover:bg-accent transition-colors;
+  }
+  
+  .ran-cell-tapped {
+    @apply bg-foreground text-background;
+  }
+}
+
+/* Keyframe animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out forwards;
+}
