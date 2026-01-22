@@ -16,133 +16,153 @@ interface UseSTTOptions {
   onError?: (error: string) => void;
 }
 
+// Extend Window interface for SpeechRecognition
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+  message: string;
+}
+
+type SpeechRecognitionType = new () => {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+  onstart: (() => void) | null;
+};
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionType;
+    webkitSpeechRecognition?: SpeechRecognitionType;
+  }
+}
+
 export function useSpeechToText(options: UseSTTOptions = {}) {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [transcription, setTranscription] = useState<string | null>(null);
   
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const recognitionRef = useRef<InstanceType<SpeechRecognitionType> | null>(null);
   const startTimeRef = useRef<number>(0);
+  const transcriptRef = useRef<string>('');
 
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        } 
-      });
+      // Use browser's built-in Web Speech API
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus',
-      });
-      
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
-      startTimeRef.current = Date.now();
+      if (!SpeechRecognition) {
+        throw new Error('Speech recognition not supported in this browser. Please use Chrome, Edge, or Safari.');
+      }
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data);
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      
+      recognitionRef.current = recognition;
+      startTimeRef.current = Date.now();
+      transcriptRef.current = '';
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+        options.onStart?.();
+      };
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        let finalTranscript = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result.isFinal) {
+            finalTranscript += result[0].transcript;
+          }
+        }
+        
+        if (finalTranscript) {
+          transcriptRef.current += finalTranscript;
         }
       };
 
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        setAudioBlob(blob);
-        
-        // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error('Speech recognition error:', event.error);
+        if (event.error !== 'no-speech' && event.error !== 'aborted') {
+          options.onError?.(`Speech recognition error: ${event.error}`);
+        }
       };
 
-      mediaRecorder.start(100); // Collect data every 100ms
-      setIsRecording(true);
-      options.onStart?.();
+      recognition.onend = () => {
+        // Recognition ended naturally
+      };
+
+      recognition.start();
     } catch (error) {
-      console.error('Microphone access error:', error);
-      options.onError?.('Could not access microphone. Please check permissions.');
+      console.error('Speech recognition error:', error);
+      options.onError?.(error instanceof Error ? error.message : 'Could not start speech recognition');
     }
   }, [options]);
 
   const stopRecording = useCallback(async () => {
-    if (!mediaRecorderRef.current || !isRecording) return;
+    if (!recognitionRef.current || !isRecording) return;
 
     const duration = Date.now() - startTimeRef.current;
     
     return new Promise<Blob>((resolve) => {
-      mediaRecorderRef.current!.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        setAudioBlob(blob);
+      recognitionRef.current!.onend = () => {
         setIsRecording(false);
         options.onStop?.(duration);
         
-        // Stop all tracks
-        mediaRecorderRef.current!.stream.getTracks().forEach(track => track.stop());
+        // Create a dummy blob for compatibility
+        const blob = new Blob(['audio'], { type: 'audio/webm' });
+        setAudioBlob(blob);
         resolve(blob);
       };
       
-      mediaRecorderRef.current!.stop();
+      recognitionRef.current!.stop();
     });
   }, [isRecording, options]);
 
-  const transcribe = useCallback(async (blob?: Blob) => {
-    const audioToTranscribe = blob || audioBlob;
-    if (!audioToTranscribe) {
-      options.onError?.('No audio to transcribe');
-      return null;
-    }
-
+  const transcribe = useCallback(async () => {
+    // With Web Speech API, transcription happens in real-time
+    // This just returns the accumulated transcript
     setIsTranscribing(true);
-
+    
     try {
-      const formData = new FormData();
-      formData.append('audio', audioToTranscribe, 'recording.webm');
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/speech-to-text`,
-        {
-          method: 'POST',
-          headers: {
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: formData,
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || 'Transcription failed');
-      }
-
-      const result: TranscriptionResult = await response.json();
-      setTranscription(result.text);
+      const text = transcriptRef.current.trim();
+      const result: TranscriptionResult = { text };
+      
+      setTranscription(text);
       options.onTranscription?.(result);
       return result;
-    } catch (error) {
-      console.error('STT error:', error);
-      options.onError?.(error instanceof Error ? error.message : 'Transcription failed');
-      return null;
     } finally {
       setIsTranscribing(false);
     }
-  }, [audioBlob, options]);
+  }, [options]);
 
   const stopAndTranscribe = useCallback(async () => {
-    const blob = await stopRecording();
-    if (blob) {
-      return await transcribe(blob);
-    }
-    return null;
+    await stopRecording();
+    
+    // Small delay to ensure all results are processed
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    return await transcribe();
   }, [stopRecording, transcribe]);
 
   const reset = useCallback(() => {
     setAudioBlob(null);
     setTranscription(null);
-    chunksRef.current = [];
+    transcriptRef.current = '';
   }, []);
 
   return {
