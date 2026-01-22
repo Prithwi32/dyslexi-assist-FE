@@ -6,7 +6,7 @@ import type { TaskResult } from '@/types/intake';
 const SlideLetterSound = () => {
   const [currentItem, setCurrentItem] = useState(0);
   const [itemStartTime, setItemStartTime] = useState(Date.now());
-  const { addLetterSound, getTimeOnScreen } = useIntakeStore();
+  const { addTask } = useIntakeStore();
 
   const item = letterSoundItems[currentItem];
   const isComplete = currentItem >= letterSoundItems.length;
@@ -20,15 +20,16 @@ const SlideLetterSound = () => {
     const isCorrect = choice === item.correctAnswer;
 
     const result: TaskResult = {
-      item_id: item.id,
-      task_type: 'letter_sound',
-      response: choice,
-      expected: item.correctAnswer,
-      is_correct: isCorrect,
-      response_time_ms: responseTime,
+      taskId: item.id,
+      type: 'letter_sound',
+      difficulty: item.difficulty,
+      correct: isCorrect,
+      responseTimeMs: responseTime,
+      errorType: isCorrect ? null : 'letter_confusion',
+      transcript: null,
     };
 
-    addLetterSound(result);
+    addTask(result);
     setCurrentItem((prev) => prev + 1);
   };
 
