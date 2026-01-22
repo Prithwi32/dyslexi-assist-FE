@@ -9,7 +9,7 @@ import { Volume2, Mic, MicOff, Loader2 } from 'lucide-react';
 const SlideRealWords = () => {
   const [currentItem, setCurrentItem] = useState(0);
   const [itemStartTime, setItemStartTime] = useState(Date.now());
-  const { micEnabled, addRealWord } = useIntakeStore();
+  const { micEnabled, addTask } = useIntakeStore();
   
   const { speak, isLoading: ttsLoading, isPlaying } = useTextToSpeech();
   const { 
@@ -40,47 +40,48 @@ const SlideRealWords = () => {
   const handleStopAndSubmit = useCallback(async () => {
     const responseTime = Date.now() - itemStartTime;
     
-    let transcription: string | null = null;
+    let transcript: string | null = null;
     let isCorrect: boolean | null = null;
     
     if (isRecording) {
       const result = await stopAndTranscribe();
-      transcription = result?.text || null;
+      transcript = result?.text || null;
       
-      // Simple matching - check if the transcription contains the word
-      if (transcription) {
-        isCorrect = transcription.toLowerCase().includes(item.word.toLowerCase());
+      // Check if the transcription contains the word
+      if (transcript) {
+        isCorrect = transcript.toLowerCase().includes(item.word.toLowerCase());
       }
     }
 
     const taskResult: TaskResult = {
-      item_id: item.id,
-      task_type: 'real_word_reading_voice',
-      response: transcription || 'voice_attempted',
-      expected: item.word,
-      is_correct: isCorrect,
-      response_time_ms: responseTime,
-      transcription,
+      taskId: item.id,
+      type: 'real_word',
+      difficulty: item.difficulty,
+      correct: isCorrect,
+      responseTimeMs: responseTime,
+      errorType: isCorrect === false ? 'reading_error' : null,
+      transcript,
     };
 
-    addRealWord(taskResult);
+    addTask(taskResult);
     setCurrentItem((prev) => prev + 1);
-  }, [itemStartTime, isRecording, stopAndTranscribe, item, addRealWord]);
+  }, [itemStartTime, isRecording, stopAndTranscribe, item, addTask]);
 
   const handleChoice = (choice: string) => {
     const responseTime = Date.now() - itemStartTime;
     const isCorrect = choice === item.correctSpelling;
 
     const taskResult: TaskResult = {
-      item_id: item.id,
-      task_type: 'real_word_reading_mcq',
-      response: choice,
-      expected: item.correctSpelling || item.word,
-      is_correct: isCorrect,
-      response_time_ms: responseTime,
+      taskId: item.id,
+      type: 'real_word',
+      difficulty: item.difficulty,
+      correct: isCorrect,
+      responseTimeMs: responseTime,
+      errorType: isCorrect ? null : 'spelling',
+      transcript: null,
     };
 
-    addRealWord(taskResult);
+    addTask(taskResult);
     setCurrentItem((prev) => prev + 1);
   };
 

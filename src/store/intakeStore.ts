@@ -1,102 +1,95 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { 
-  IntakePayload, 
+  IntakeState, 
   TaskResult,
-  RapidNamingResult,
-  PassageResult,
-  SelfReport,
+  SessionResults,
+  UserProfile,
+  UserPreferences,
+  SessionFlags,
 } from '@/types/intake';
 
-interface IntakeState {
-  // Current slide index
-  currentSlide: number;
-  
-  // Settings
-  locale: string;
-  gradeBand: 'primary' | 'middle_school' | 'high_school' | 'adult';
-  micEnabled: boolean;
-  preferences: {
-    font_size: 'small' | 'medium' | 'large';
-    theme: 'light' | 'dark' | 'soft';
-    highlight_mode: 'word' | 'line' | 'none';
-    reading_mode: 'listening_first' | 'silent_reading' | 'reading_aloud' | 'mixed';
-  };
-  
-  // Results by section
-  letterSounds: TaskResult[];
-  phonemeBlending: TaskResult[];
-  phonemeSegmentation: TaskResult[];
-  rapidNaming: RapidNamingResult | null;
-  realWords: TaskResult[];
-  nonwords: TaskResult[];
-  passage: PassageResult | null;
-  comprehension: TaskResult[];
-  selfReport: SelfReport;
-  
-  // Timing
-  slideStartTime: number;
-  
-  // Actions
+interface IntakeActions {
+  // Navigation
   setCurrentSlide: (slide: number) => void;
   nextSlide: () => void;
   prevSlide: () => void;
-  setLocale: (locale: string) => void;
-  setGradeBand: (band: 'primary' | 'middle_school' | 'high_school' | 'adult') => void;
-  setMicEnabled: (enabled: boolean) => void;
-  setPreferences: (prefs: Partial<IntakeState['preferences']>) => void;
   
-  // Result setters
-  addLetterSound: (result: TaskResult) => void;
-  addPhonemeBlend: (result: TaskResult) => void;
-  addPhonemeSegment: (result: TaskResult) => void;
-  setRapidNaming: (result: RapidNamingResult) => void;
-  addRealWord: (result: TaskResult) => void;
-  addNonword: (result: TaskResult) => void;
-  setPassage: (result: PassageResult) => void;
-  addComprehension: (result: TaskResult) => void;
-  setSelfReport: (report: Partial<SelfReport>) => void;
+  // User info
+  setUserInfo: (info: { name?: string; email?: string; age?: number | null; gradeLevel?: string }) => void;
+  setMicEnabled: (enabled: boolean) => void;
+  
+  // Task results
+  addTask: (task: TaskResult) => void;
+  
+  // Passage results
+  setPassageResults: (wpm: number | null, durationMs: number, transcript: string | null) => void;
+  
+  // Comprehension
+  setComprehensionScore: (score: number) => void;
+  
+  // Self-report
+  setDifficultyPatterns: (patterns: string[]) => void;
+  
+  // Preferences
+  setPreferences: (prefs: Partial<UserPreferences>) => void;
+  
+  // Flags
+  setFlags: (flags: Partial<SessionFlags>) => void;
   
   // Utilities
   resetSlideTimer: () => void;
   getTimeOnScreen: () => number;
   resetIntake: () => void;
-  generatePayload: (userId: string) => IntakePayload;
+  
+  // Generate final outputs
+  generateResults: () => SessionResults;
+  generateUserProfile: () => UserProfile;
 }
 
-const initialPreferences = {
-  font_size: 'large' as const,
-  theme: 'soft' as const,
-  highlight_mode: 'word' as const,
-  reading_mode: 'mixed' as const,
+type IntakeStore = IntakeState & IntakeActions;
+
+const initialPreferences: UserPreferences = {
+  pacingPreference: 'MEDIUM',
+  highlightColor: '#FFFF00',
+  fontSizeMultiplier: 1.0,
+  enableVoiceFeedback: true,
+  enableVisualHighlighting: true,
 };
 
-const initialState = {
-  currentSlide: 0,
-  locale: 'en-IN',
-  gradeBand: 'middle_school' as const,
+const initialFlags: SessionFlags = {
+  avoidReadingAloud: false,
+  highAnxietySignals: false,
+};
+
+const initialState: IntakeState = {
+  sessionId: '',
+  userName: '',
+  userEmail: '',
+  userAge: null,
+  gradeLevel: '5-6',
   micEnabled: false,
+  tasks: [],
+  passageWpm: null,
+  passageDurationMs: null,
+  passageTranscript: null,
+  comprehensionScore: null,
+  difficultyPatterns: [],
   preferences: initialPreferences,
-  letterSounds: [],
-  phonemeBlending: [],
-  phonemeSegmentation: [],
-  rapidNaming: null,
-  realWords: [],
-  nonwords: [],
-  passage: null,
-  comprehension: [],
-  selfReport: {
-    challenges: [],
-    other_notes: null,
-  },
+  flags: initialFlags,
+  currentSlide: 0,
   slideStartTime: Date.now(),
 };
 
-export const useIntakeStore = create<IntakeState>()(
+export const useIntakeStore = create<IntakeStore>()(
   persist(
     (set, get) => ({
       ...initialState,
       
+      // Initialize session ID on first use
+      sessionId: crypto.randomUUID(),
+      
+      // Navigation
       setCurrentSlide: (slide) => set({ currentSlide: slide, slideStartTime: Date.now() }),
       nextSlide: () => set((state) => ({ 
         currentSlide: state.currentSlide + 1, 
@@ -107,93 +100,116 @@ export const useIntakeStore = create<IntakeState>()(
         slideStartTime: Date.now() 
       })),
       
-      setLocale: (locale) => set({ locale }),
-      setGradeBand: (gradeBand) => set({ gradeBand }),
+      // User info
+      setUserInfo: (info) => set((state) => ({
+        userName: info.name ?? state.userName,
+        userEmail: info.email ?? state.userEmail,
+        userAge: info.age !== undefined ? info.age : state.userAge,
+        gradeLevel: info.gradeLevel ?? state.gradeLevel,
+      })),
       setMicEnabled: (micEnabled) => set({ micEnabled }),
+      
+      // Task results
+      addTask: (task) => set((state) => ({
+        tasks: [...state.tasks, task]
+      })),
+      
+      // Passage results
+      setPassageResults: (wpm, durationMs, transcript) => set({
+        passageWpm: wpm,
+        passageDurationMs: durationMs,
+        passageTranscript: transcript,
+      }),
+      
+      // Comprehension
+      setComprehensionScore: (score) => set({ comprehensionScore: score }),
+      
+      // Self-report
+      setDifficultyPatterns: (patterns) => set({ 
+        difficultyPatterns: patterns,
+        // Auto-detect anxiety signals
+        flags: {
+          ...get().flags,
+          avoidReadingAloud: patterns.includes('Reading aloud anxiety'),
+          highAnxietySignals: patterns.length >= 4,
+        }
+      }),
+      
+      // Preferences
       setPreferences: (prefs) => set((state) => ({
         preferences: { ...state.preferences, ...prefs }
       })),
       
-      addLetterSound: (result) => set((state) => ({
-        letterSounds: [...state.letterSounds, result]
-      })),
-      addPhonemeBlend: (result) => set((state) => ({
-        phonemeBlending: [...state.phonemeBlending, result]
-      })),
-      addPhonemeSegment: (result) => set((state) => ({
-        phonemeSegmentation: [...state.phonemeSegmentation, result]
-      })),
-      setRapidNaming: (rapidNaming) => set({ rapidNaming }),
-      addRealWord: (result) => set((state) => ({
-        realWords: [...state.realWords, result]
-      })),
-      addNonword: (result) => set((state) => ({
-        nonwords: [...state.nonwords, result]
-      })),
-      setPassage: (passage) => set({ passage }),
-      addComprehension: (result) => set((state) => ({
-        comprehension: [...state.comprehension, result]
-      })),
-      setSelfReport: (report) => set((state) => ({
-        selfReport: { ...state.selfReport, ...report }
+      // Flags
+      setFlags: (flags) => set((state) => ({
+        flags: { ...state.flags, ...flags }
       })),
       
+      // Utilities
       resetSlideTimer: () => set({ slideStartTime: Date.now() }),
       getTimeOnScreen: () => Date.now() - get().slideStartTime,
       
-      resetIntake: () => set({ ...initialState, slideStartTime: Date.now() }),
+      resetIntake: () => set({ 
+        ...initialState, 
+        sessionId: crypto.randomUUID(),
+        slideStartTime: Date.now() 
+      }),
       
-      generatePayload: (userId: string): IntakePayload => {
+      // Generate SessionResults matching results.json structure
+      generateResults: (): SessionResults => {
         const state = get();
         
         return {
-          session_id: crypto.randomUUID(),
-          user_id: userId,
-          created_at: new Date().toISOString(),
-          
-          settings: {
-            locale: state.locale,
-            grade_band: state.gradeBand,
-            mic_enabled: state.micEnabled,
-            preferences: state.preferences,
+          id: state.sessionId,
+          userId: state.userEmail || crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+          gradeBand: state.gradeLevel,
+          tasks: state.tasks,
+          flags: state.flags,
+        };
+      },
+      
+      // Generate UserProfile matching user.json structure
+      generateUserProfile: (): UserProfile => {
+        const state = get();
+        const now = new Date().toISOString();
+        
+        return {
+          id: crypto.randomUUID(),
+          email: state.userEmail,
+          name: state.userName,
+          age: state.userAge,
+          gradeLevel: state.gradeLevel,
+          readingProfile: {
+            baselineWpm: state.passageWpm,
+            baselineComprehension: state.comprehensionScore,
+            difficultyPatterns: state.difficultyPatterns,
+            lastAssessedAt: now,
           },
-          
-          results: {
-            letter_sounds: state.letterSounds,
-            phoneme_blending: state.phonemeBlending,
-            phoneme_segmentation: state.phonemeSegmentation,
-            rapid_naming: state.rapidNaming,
-            real_words: state.realWords,
-            nonwords: state.nonwords,
-            passage: state.passage,
-            comprehension: state.comprehension,
-            self_report: state.selfReport,
-          },
-          
-          flags: {
-            avoid_reading_aloud: state.selfReport.challenges.includes('Reading aloud anxiety'),
-            high_anxiety: state.selfReport.challenges.length >= 4,
-          },
+          preferences: state.preferences,
+          createdAt: now,
+          updatedAt: now,
         };
       },
     }),
     {
-      name: 'dyslexi-assist-intake-v2',
+      name: 'dyslexi-assist-intake-v3',
       partialize: (state) => ({
-        currentSlide: state.currentSlide,
-        locale: state.locale,
-        gradeBand: state.gradeBand,
+        sessionId: state.sessionId,
+        userName: state.userName,
+        userEmail: state.userEmail,
+        userAge: state.userAge,
+        gradeLevel: state.gradeLevel,
         micEnabled: state.micEnabled,
+        tasks: state.tasks,
+        passageWpm: state.passageWpm,
+        passageDurationMs: state.passageDurationMs,
+        passageTranscript: state.passageTranscript,
+        comprehensionScore: state.comprehensionScore,
+        difficultyPatterns: state.difficultyPatterns,
         preferences: state.preferences,
-        letterSounds: state.letterSounds,
-        phonemeBlending: state.phonemeBlending,
-        phonemeSegmentation: state.phonemeSegmentation,
-        rapidNaming: state.rapidNaming,
-        realWords: state.realWords,
-        nonwords: state.nonwords,
-        passage: state.passage,
-        comprehension: state.comprehension,
-        selfReport: state.selfReport,
+        flags: state.flags,
+        currentSlide: state.currentSlide,
       }),
     }
   )
