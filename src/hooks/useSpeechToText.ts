@@ -56,14 +56,28 @@ export function useSpeechToText(options: UseSTTOptions = {}) {
   
   const recognitionRef = useRef<InstanceType<SpeechRecognitionType> | null>(null);
   const startTimeRef = useRef<number>(0);
-  const transcriptRef = useRef<string>('');
+  const finalTranscriptRef = useRef<string>('');
+  const interimTranscriptRef = useRef<string>('');
   const isRecordingRef = useRef<boolean>(false);
   const stopResolveRef = useRef<((result: TranscriptionResult) => void) | null>(null);
+  const hasEndedRef = useRef<boolean>(false);
 
   // Keep isRecordingRef in sync with state
   useEffect(() => {
     isRecordingRef.current = isRecording;
   }, [isRecording]);
+
+  const getFullTranscript = useCallback(() => {
+    // Combine final transcript with any remaining interim words
+    const final = finalTranscriptRef.current.trim();
+    const interim = interimTranscriptRef.current.trim();
+    
+    // If we have a final transcript, use it. Otherwise fall back to interim
+    if (final) {
+      return final;
+    }
+    return interim;
+  }, []);
 
   const startRecording = useCallback(async () => {
     // Prevent double-start
@@ -87,7 +101,9 @@ export function useSpeechToText(options: UseSTTOptions = {}) {
       
       recognitionRef.current = recognition;
       startTimeRef.current = Date.now();
-      transcriptRef.current = '';
+      finalTranscriptRef.current = '';
+      interimTranscriptRef.current = '';
+      hasEndedRef.current = false;
       setInterimTranscript('');
 
       recognition.onstart = () => {
@@ -98,24 +114,28 @@ export function useSpeechToText(options: UseSTTOptions = {}) {
       };
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
-        let finalTranscript = '';
-        let interim = '';
+        let currentFinal = '';
+        let currentInterim = '';
         
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        // Process ALL results from the beginning to build complete transcript
+        for (let i = 0; i < event.results.length; i++) {
           const result = event.results[i];
           if (result.isFinal) {
-            finalTranscript += result[0].transcript;
+            currentFinal += result[0].transcript + ' ';
           } else {
-            interim += result[0].transcript;
+            currentInterim += result[0].transcript;
           }
         }
         
-        if (finalTranscript) {
-          transcriptRef.current += finalTranscript;
-          console.log('Final transcript:', transcriptRef.current);
+        // Store the accumulated final transcript
+        if (currentFinal) {
+          finalTranscriptRef.current = currentFinal.trim();
+          console.log('Accumulated final transcript:', finalTranscriptRef.current);
         }
         
-        setInterimTranscript(interim);
+        // Store interim for fallback
+        interimTranscriptRef.current = currentInterim;
+        setInterimTranscript(currentInterim);
       };
 
       recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -127,13 +147,21 @@ export function useSpeechToText(options: UseSTTOptions = {}) {
 
       recognition.onend = () => {
         console.log('Speech recognition ended');
+        hasEndedRef.current = true;
         isRecordingRef.current = false;
         setIsRecording(false);
+        
+        // Get the best available transcript
+        const fullTranscript = getFullTranscript();
+        console.log('Final transcript on end:', fullTranscript);
+        
+        // Clear interim display
         setInterimTranscript('');
         
         // If there's a pending stop promise, resolve it
         if (stopResolveRef.current) {
-          const result: TranscriptionResult = { text: transcriptRef.current.trim() };
+          const result: TranscriptionResult = { text: fullTranscript };
+          console.log('Resolving stop promise with:', result.text);
           stopResolveRef.current(result);
           stopResolveRef.current = null;
         }
@@ -147,7 +175,7 @@ export function useSpeechToText(options: UseSTTOptions = {}) {
       setIsRecording(false);
       options.onError?.(error instanceof Error ? error.message : 'Could not start speech recognition');
     }
-  }, [options]);
+  }, [options, getFullTranscript]);
 
   const stopRecording = useCallback(async (): Promise<Blob> => {
     console.log('stopRecording called, isRecordingRef:', isRecordingRef.current);
@@ -179,7 +207,7 @@ export function useSpeechToText(options: UseSTTOptions = {}) {
     setIsTranscribing(true);
     
     try {
-      const text = transcriptRef.current.trim();
+      const text = getFullTranscript();
       const result: TranscriptionResult = { text };
       
       setTranscription(text);
@@ -188,20 +216,40 @@ export function useSpeechToText(options: UseSTTOptions = {}) {
     } finally {
       setIsTranscribing(false);
     }
-  }, [options]);
+  }, [options, getFullTranscript]);
 
   const stopAndTranscribe = useCallback(async (): Promise<TranscriptionResult> => {
-    console.log('stopAndTranscribe called');
+    console.log('stopAndTranscribe called, current transcript:', finalTranscriptRef.current);
     setIsTranscribing(true);
     
     return new Promise<TranscriptionResult>((resolve) => {
       const duration = Date.now() - startTimeRef.current;
       
-      if (recognitionRef.current) {
+      // Helper to finalize and resolve
+      const finalizeAndResolve = () => {
+        const fullTranscript = getFullTranscript();
+        const result: TranscriptionResult = { text: fullTranscript };
+        console.log('Finalizing with transcript:', fullTranscript);
+        
+        stopResolveRef.current = null;
+        setIsTranscribing(false);
+        setTranscription(result.text);
+        setInterimTranscript('');
+        options.onTranscription?.(result);
+        options.onStop?.(duration);
+        recognitionRef.current = null;
+        isRecordingRef.current = false;
+        setIsRecording(false);
+        resolve(result);
+      };
+      
+      if (recognitionRef.current && !hasEndedRef.current) {
         // Set up the resolve callback for when onend fires
         stopResolveRef.current = (result) => {
+          console.log('Stop resolve callback triggered with:', result.text);
           setIsTranscribing(false);
           setTranscription(result.text);
+          setInterimTranscript('');
           options.onTranscription?.(result);
           options.onStop?.(duration);
           resolve(result);
@@ -212,42 +260,24 @@ export function useSpeechToText(options: UseSTTOptions = {}) {
         } catch (e) {
           console.log('Error stopping recognition:', e);
           // Fallback: resolve immediately with current transcript
-          const result: TranscriptionResult = { text: transcriptRef.current.trim() };
-          stopResolveRef.current = null;
-          setIsTranscribing(false);
-          setTranscription(result.text);
-          options.onTranscription?.(result);
-          options.onStop?.(duration);
-          resolve(result);
+          finalizeAndResolve();
+          return;
         }
         
-        // Timeout fallback in case onend doesn't fire
+        // Longer timeout fallback in case onend doesn't fire
+        // Give browser time to process final results
         setTimeout(() => {
           if (stopResolveRef.current) {
             console.log('Timeout: resolving with current transcript');
-            const result: TranscriptionResult = { text: transcriptRef.current.trim() };
-            stopResolveRef.current = null;
-            setIsTranscribing(false);
-            setTranscription(result.text);
-            options.onTranscription?.(result);
-            options.onStop?.(duration);
-            resolve(result);
+            finalizeAndResolve();
           }
-        }, 500);
+        }, 1500); // Increased to 1.5 seconds
       } else {
-        // No recognition running, just return current transcript
-        const result: TranscriptionResult = { text: transcriptRef.current.trim() };
-        setIsTranscribing(false);
-        setTranscription(result.text);
-        options.onTranscription?.(result);
-        resolve(result);
+        // No recognition running or already ended, just return current transcript
+        finalizeAndResolve();
       }
-      
-      recognitionRef.current = null;
-      isRecordingRef.current = false;
-      setIsRecording(false);
     });
-  }, [options]);
+  }, [options, getFullTranscript]);
 
   const reset = useCallback(() => {
     if (recognitionRef.current) {
@@ -259,11 +289,13 @@ export function useSpeechToText(options: UseSTTOptions = {}) {
       recognitionRef.current = null;
     }
     isRecordingRef.current = false;
+    hasEndedRef.current = false;
     setIsRecording(false);
     setAudioBlob(null);
     setTranscription(null);
     setInterimTranscript('');
-    transcriptRef.current = '';
+    finalTranscriptRef.current = '';
+    interimTranscriptRef.current = '';
     stopResolveRef.current = null;
   }, []);
 
