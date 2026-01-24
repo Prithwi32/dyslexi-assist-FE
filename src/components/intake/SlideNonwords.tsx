@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useIntakeStore } from '@/store/intakeStore';
 import { nonwordItems } from '@/data/intakeItems';
-import type { TaskResult } from '@/types/intake';
 import { Volume2, Mic, MicOff } from 'lucide-react';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { useSpeechToText } from '@/hooks/useSpeechToText';
 
 const SlideNonwords = () => {
   const [currentItem, setCurrentItem] = useState(0);
   const [itemStartTime, setItemStartTime] = useState(Date.now());
-  const { micEnabled, addNonword, getTimeOnScreen } = useIntakeStore();
+  const { micEnabled, addTask } = useIntakeStore();
   const { speak, isLoading } = useTextToSpeech();
+  const { startRecording, stopAndTranscribe } = useSpeechToText();
 
   const useVoiceMode = micEnabled;
   const item = nonwordItems[currentItem];
@@ -23,19 +24,20 @@ const SlideNonwords = () => {
     await speak(item.word);
   };
 
-  const handleVoiceAttempt = () => {
+  const handleVoiceAttempt = async () => {
     const responseTime = Date.now() - itemStartTime;
+    const result = await stopAndTranscribe();
 
-    const result: TaskResult = {
-      item_id: item.id,
-      task_type: 'nonword_reading_voice',
-      response: 'voice_attempted',
-      expected: item.word,
-      is_correct: null, // Cannot determine without ASR
-      response_time_ms: responseTime,
-    };
+    addTask({
+      taskId: item.id,
+      type: 'nonword',
+      difficulty: item.difficulty,
+      correct: null, // Cannot determine without ASR comparison
+      responseTimeMs: responseTime,
+      errorType: null,
+      transcript: result.text || null,
+    });
 
-    addNonword(result);
     setCurrentItem((prev) => prev + 1);
   };
 
@@ -43,18 +45,25 @@ const SlideNonwords = () => {
     const responseTime = Date.now() - itemStartTime;
     const isCorrect = choice === item.correctSpelling;
 
-    const result: TaskResult = {
-      item_id: item.id,
-      task_type: 'nonword_reading_mcq',
-      response: choice,
-      expected: item.correctSpelling || item.word,
-      is_correct: isCorrect,
-      response_time_ms: responseTime,
-    };
+    addTask({
+      taskId: item.id,
+      type: 'nonword',
+      difficulty: item.difficulty,
+      correct: isCorrect,
+      responseTimeMs: responseTime,
+      errorType: isCorrect ? null : 'spelling_error',
+      transcript: null,
+    });
 
-    addNonword(result);
     setCurrentItem((prev) => prev + 1);
   };
+
+  // Start listening when entering voice mode item
+  useEffect(() => {
+    if (useVoiceMode && !isComplete) {
+      startRecording();
+    }
+  }, [currentItem, useVoiceMode, isComplete, startRecording]);
 
   if (isComplete) {
     return (

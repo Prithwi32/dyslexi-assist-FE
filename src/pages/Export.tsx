@@ -2,21 +2,23 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useIntakeStore } from '@/store/intakeStore';
-import { sendIntakeData, validatePayload, downloadJson, copyToClipboard } from '@/services/intakeService';
+import { sendIntakeData, validateResults, validateUserProfile, downloadJson, copyToClipboard } from '@/services/intakeService';
 import { useToast } from '@/hooks/use-toast';
 import { Copy, Download, Send, LogOut, CheckCircle, AlertCircle } from 'lucide-react';
-import type { IntakePayload } from '@/types/intake';
+import type { SessionResults, UserProfile } from '@/types/intake';
 
 const Export = () => {
   const navigate = useNavigate();
   const { session, logout, isAuthenticated } = useAuthStore();
-  const { generatePayload, resetIntake } = useIntakeStore();
+  const { generateResults, generateUserProfile, resetIntake } = useIntakeStore();
   const { toast } = useToast();
 
-  const [payload, setPayload] = useState<IntakePayload | null>(null);
+  const [results, setResults] = useState<SessionResults | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [validation, setValidation] = useState<{ valid: boolean; errors: string[] }>({ valid: true, errors: [] });
   const [isSending, setIsSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<'results' | 'profile'>('results');
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -24,12 +26,21 @@ const Export = () => {
       return;
     }
 
-    if (session) {
-      const generatedPayload = generatePayload(session.userId);
-      setPayload(generatedPayload);
-      setValidation(validatePayload(generatedPayload));
-    }
-  }, [isAuthenticated, session, generatePayload, navigate]);
+    const generatedResults = generateResults();
+    const generatedProfile = generateUserProfile();
+    
+    setResults(generatedResults);
+    setUserProfile(generatedProfile);
+    
+    // Combine validations
+    const resultsValidation = validateResults(generatedResults);
+    const profileValidation = validateUserProfile(generatedProfile);
+    
+    setValidation({
+      valid: resultsValidation.valid && profileValidation.valid,
+      errors: [...resultsValidation.errors, ...profileValidation.errors],
+    });
+  }, [isAuthenticated, generateResults, generateUserProfile, navigate]);
 
   const handleLogout = () => {
     logout();
@@ -37,36 +48,53 @@ const Export = () => {
   };
 
   const handleCopy = async () => {
-    if (payload) {
-      const success = await copyToClipboard(JSON.stringify(payload, null, 2));
+    const data = activeTab === 'results' ? results : userProfile;
+    if (data) {
+      const success = await copyToClipboard(JSON.stringify(data, null, 2));
       toast({
         title: success ? "Copied!" : "Could not copy",
         description: success 
-          ? "JSON copied to clipboard" 
+          ? `${activeTab === 'results' ? 'Results' : 'Profile'} JSON copied to clipboard` 
           : "Please select and copy manually",
       });
     }
   };
 
   const handleDownload = () => {
-    if (payload) {
-      const filename = `dyslexi-assist-intake-${payload.session_id.slice(0, 8)}.json`;
-      downloadJson(payload, filename);
+    if (results && userProfile) {
+      const prefix = results.id.slice(0, 8);
+      if (activeTab === 'results') {
+        downloadJson(results, `dyslexi-results-${prefix}.json`);
+      } else {
+        downloadJson(userProfile, `dyslexi-user-${prefix}.json`);
+      }
       toast({
         title: "Downloaded",
-        description: `Saved as ${filename}`,
+        description: `Saved ${activeTab} JSON file`,
+      });
+    }
+  };
+
+  const handleDownloadBoth = () => {
+    if (results && userProfile) {
+      const prefix = results.id.slice(0, 8);
+      downloadJson(results, `dyslexi-results-${prefix}.json`);
+      downloadJson(userProfile, `dyslexi-user-${prefix}.json`);
+      toast({
+        title: "Downloaded",
+        description: "Saved both JSON files",
       });
     }
   };
 
   const handleSend = async () => {
-    if (!payload || !validation.valid) return;
+    if (!results || !userProfile || !validation.valid) return;
 
     setIsSending(true);
     setSendResult(null);
 
     try {
-      const result = await sendIntakeData(payload);
+      const result = await sendIntakeData(results, userProfile);
       setSendResult(result);
       toast({
         title: result.success ? "Sent successfully" : "Send failed",
@@ -87,23 +115,7 @@ const Export = () => {
     navigate('/intake');
   };
 
-  // Calculate total items from results
-  const getTotalItems = () => {
-    if (!payload) return 0;
-    const { results } = payload;
-    return (
-      results.letter_sounds.length +
-      results.phoneme_blending.length +
-      results.phoneme_segmentation.length +
-      results.real_words.length +
-      results.nonwords.length +
-      results.comprehension.length +
-      (results.rapid_naming ? 1 : 0) +
-      (results.passage ? 1 : 0)
-    );
-  };
-
-  if (!session || !payload) {
+  if (!session || !results || !userProfile) {
     return null;
   }
 
@@ -136,7 +148,7 @@ const Export = () => {
             <h2 className="headline-lg mb-4">Review & Export</h2>
             <div className="rule-double mx-auto max-w-xs mb-4" />
             <p className="helper-text max-w-xl mx-auto">
-              Your intake data is ready. Review the JSON below and choose how to export it.
+              Your intake data is ready. Review both JSON files and choose how to export them.
             </p>
           </div>
 
@@ -167,25 +179,51 @@ const Export = () => {
           {/* Summary stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="newspaper-card text-center">
-              <span className="text-3xl font-headline font-bold">{getTotalItems()}</span>
-              <p className="text-sm text-muted-foreground">Items Completed</p>
+              <span className="text-3xl font-headline font-bold">{results.tasks.length}</span>
+              <p className="text-sm text-muted-foreground">Tasks Completed</p>
             </div>
             <div className="newspaper-card text-center">
-              <span className="text-3xl font-headline font-bold">{payload.settings.locale}</span>
-              <p className="text-sm text-muted-foreground">Locale</p>
-            </div>
-            <div className="newspaper-card text-center">
-              <span className="text-3xl font-headline font-bold capitalize">
-                {payload.settings.grade_band.replace('_', ' ')}
-              </span>
+              <span className="text-3xl font-headline font-bold">{results.gradeBand}</span>
               <p className="text-sm text-muted-foreground">Grade Band</p>
             </div>
             <div className="newspaper-card text-center">
               <span className="text-3xl font-headline font-bold">
-                {payload.settings.mic_enabled ? 'Yes' : 'No'}
+                {userProfile.readingProfile.baselineWpm ?? '—'}
               </span>
-              <p className="text-sm text-muted-foreground">Mic Enabled</p>
+              <p className="text-sm text-muted-foreground">WPM</p>
             </div>
+            <div className="newspaper-card text-center">
+              <span className="text-3xl font-headline font-bold">
+                {userProfile.readingProfile.baselineComprehension ?? '—'}%
+              </span>
+              <p className="text-sm text-muted-foreground">Comprehension</p>
+            </div>
+          </div>
+
+          {/* Tab buttons */}
+          <div className="flex gap-2 justify-center">
+            <button
+              type="button"
+              onClick={() => setActiveTab('results')}
+              className={`px-6 py-2 font-headline font-bold border-2 border-foreground transition-colors ${
+                activeTab === 'results' 
+                  ? 'bg-foreground text-background' 
+                  : 'bg-transparent hover:bg-accent'
+              }`}
+            >
+              Session Results
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('profile')}
+              className={`px-6 py-2 font-headline font-bold border-2 border-foreground transition-colors ${
+                activeTab === 'profile' 
+                  ? 'bg-foreground text-background' 
+                  : 'bg-transparent hover:bg-accent'
+              }`}
+            >
+              User Profile
+            </button>
           </div>
 
           {/* Action buttons */}
@@ -205,7 +243,16 @@ const Export = () => {
               className="btn-newspaper-outline inline-flex items-center gap-2"
             >
               <Download className="w-5 h-5" />
-              <span>Download .json</span>
+              <span>Download Current</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownloadBoth}
+              className="btn-newspaper-outline inline-flex items-center gap-2"
+            >
+              <Download className="w-5 h-5" />
+              <span>Download Both</span>
             </button>
 
             <button
@@ -238,14 +285,16 @@ const Export = () => {
           {/* JSON display */}
           <div className="newspaper-card">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-headline font-bold text-lg">Results JSON</h3>
+              <h3 className="font-headline font-bold text-lg">
+                {activeTab === 'results' ? 'Session Results JSON' : 'User Profile JSON'}
+              </h3>
               <span className="text-sm text-muted-foreground">
-                {JSON.stringify(payload).length.toLocaleString()} bytes
+                {JSON.stringify(activeTab === 'results' ? results : userProfile).length.toLocaleString()} bytes
               </span>
             </div>
             <div className="rule-thin mb-4" />
             <pre className="bg-background border-2 border-foreground p-4 overflow-x-auto text-sm font-mono max-h-[50vh] overflow-y-auto">
-              {JSON.stringify(payload, null, 2)}
+              {JSON.stringify(activeTab === 'results' ? results : userProfile, null, 2)}
             </pre>
           </div>
 

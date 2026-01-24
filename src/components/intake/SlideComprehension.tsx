@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useIntakeStore } from '@/store/intakeStore';
 import { comprehensionQuestions } from '@/data/intakeItems';
-import type { TaskResult } from '@/types/intake';
 
 const SlideComprehension = () => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [itemStartTime, setItemStartTime] = useState(Date.now());
-  const { addComprehension, getTimeOnScreen } = useIntakeStore();
+  const [correctCount, setCorrectCount] = useState(0);
+  const { addTask, setComprehensionScore } = useIntakeStore();
 
   const question = comprehensionQuestions[currentQuestion];
   const isComplete = currentQuestion >= comprehensionQuestions.length;
@@ -15,20 +15,32 @@ const SlideComprehension = () => {
     setItemStartTime(Date.now());
   }, [currentQuestion]);
 
+  // Calculate and save comprehension score when complete
+  useEffect(() => {
+    if (isComplete && comprehensionQuestions.length > 0) {
+      const score = Math.round((correctCount / comprehensionQuestions.length) * 100);
+      setComprehensionScore(score);
+    }
+  }, [isComplete, correctCount, setComprehensionScore]);
+
   const handleChoice = (choice: string) => {
     const responseTime = Date.now() - itemStartTime;
     const isCorrect = choice === question.correctAnswer;
 
-    const result: TaskResult = {
-      item_id: question.id,
-      task_type: `comprehension_${question.questionType}`,
-      response: choice,
-      expected: question.correctAnswer,
-      is_correct: isCorrect,
-      response_time_ms: responseTime,
-    };
+    if (isCorrect) {
+      setCorrectCount((prev) => prev + 1);
+    }
 
-    addComprehension(result);
+    addTask({
+      taskId: question.id,
+      type: 'comprehension',
+      difficulty: question.difficulty,
+      correct: isCorrect,
+      responseTimeMs: responseTime,
+      errorType: isCorrect ? null : `wrong_${question.questionType}`,
+      transcript: null,
+    });
+
     setCurrentQuestion((prev) => prev + 1);
   };
 

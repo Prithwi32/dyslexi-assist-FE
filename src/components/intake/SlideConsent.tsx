@@ -4,27 +4,20 @@ interface SlideConsentProps {
   onComplete: () => void;
 }
 
-const locales = [
-  { value: 'en-IN', label: 'English (India)' },
-  { value: 'en-US', label: 'English (US)' },
-  { value: 'en-GB', label: 'English (UK)' },
-  { value: 'hi-IN', label: 'Hindi' },
-];
-
 const gradeBands = [
-  { value: 'primary', label: 'Primary School' },
-  { value: 'middle_school', label: 'Middle School' },
-  { value: 'high_school', label: 'High School' },
+  { value: 'K-2', label: 'Grades K-2' },
+  { value: '3-4', label: 'Grades 3-4' },
+  { value: '5-6', label: 'Grades 5-6' },
+  { value: '7-8', label: 'Grades 7-8' },
+  { value: '9-12', label: 'Grades 9-12' },
   { value: 'adult', label: 'Adult Learner' },
 ];
 
 const SlideConsent = ({ onComplete }: SlideConsentProps) => {
   const { 
-    locale, 
-    gradeBand, 
+    gradeLevel, 
     micEnabled,
-    setLocale, 
-    setGradeBand, 
+    setUserInfo, 
     setMicEnabled,
   } = useIntakeStore();
 
@@ -76,34 +69,15 @@ const SlideConsent = ({ onComplete }: SlideConsentProps) => {
         </div>
       </div>
 
-      {/* Language selection */}
-      <div className="newspaper-card">
-        <label htmlFor="locale" className="block font-headline font-bold text-lg mb-3">
-          Choose your language
-        </label>
-        <select
-          id="locale"
-          value={locale}
-          onChange={(e) => setLocale(e.target.value)}
-          className="input-newspaper"
-        >
-          {locales.map((loc) => (
-            <option key={loc.value} value={loc.value}>
-              {loc.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
       {/* Grade band selection */}
       <div className="newspaper-card">
-        <label htmlFor="gradeBand" className="block font-headline font-bold text-lg mb-3">
-          What best describes you?
+        <label htmlFor="gradeLevel" className="block font-headline font-bold text-lg mb-3">
+          What grade level best describes you?
         </label>
         <select
-          id="gradeBand"
-          value={gradeBand}
-          onChange={(e) => setGradeBand(e.target.value as any)}
+          id="gradeLevel"
+          value={gradeLevel}
+          onChange={(e) => setUserInfo({ gradeLevel: e.target.value })}
           className="input-newspaper"
         >
           {gradeBands.map((band) => (

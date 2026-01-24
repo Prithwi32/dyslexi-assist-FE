@@ -1,13 +1,17 @@
-import { IntakePayload } from '@/types/intake';
+import { SessionResults, UserProfile } from '@/types/intake';
 
 // Placeholder API endpoint
 const API_ENDPOINT = '/api/intake';
 
-export async function sendIntakeData(payload: IntakePayload): Promise<{ success: boolean; message: string }> {
+export async function sendIntakeData(
+  results: SessionResults, 
+  userProfile: UserProfile
+): Promise<{ success: boolean; message: string }> {
   // For MVP, we'll log to console and simulate an API call
-  console.log('Sending intake data to backend:', payload);
+  console.log('Sending intake data to backend:');
   console.log('Endpoint:', API_ENDPOINT);
-  console.log('Payload JSON:', JSON.stringify(payload, null, 2));
+  console.log('Session Results:', JSON.stringify(results, null, 2));
+  console.log('User Profile:', JSON.stringify(userProfile, null, 2));
   
   // Simulate network delay
   await new Promise(resolve => setTimeout(resolve, 800));
@@ -16,7 +20,7 @@ export async function sendIntakeData(payload: IntakePayload): Promise<{ success:
   // const response = await fetch(API_ENDPOINT, {
   //   method: 'POST',
   //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify(payload),
+  //   body: JSON.stringify({ results, userProfile }),
   // });
   // return response.json();
   
@@ -26,37 +30,30 @@ export async function sendIntakeData(payload: IntakePayload): Promise<{ success:
   };
 }
 
-export function validatePayload(payload: IntakePayload): { valid: boolean; errors: string[] } {
+export function validateResults(results: SessionResults): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   
-  if (!payload.user_id) {
-    errors.push('Missing user_id');
+  if (!results.id) {
+    errors.push('Missing session id');
   }
   
-  if (!payload.session_id) {
-    errors.push('Missing session_id');
+  if (!results.userId) {
+    errors.push('Missing userId');
   }
   
-  if (!payload.created_at) {
-    errors.push('Missing created_at timestamp');
+  if (!results.createdAt) {
+    errors.push('Missing createdAt timestamp');
   }
   
-  if (!payload.settings) {
-    errors.push('Missing settings');
-  } else {
-    if (!payload.settings.locale) {
-      errors.push('Missing locale in settings');
-    }
-    if (!payload.settings.grade_band) {
-      errors.push('Missing grade_band in settings');
-    }
+  if (!results.gradeBand) {
+    errors.push('Missing gradeBand');
   }
   
-  if (!payload.results) {
-    errors.push('Missing results');
+  if (!results.tasks || results.tasks.length === 0) {
+    errors.push('No task results recorded');
   }
   
-  if (!payload.flags) {
+  if (!results.flags) {
     errors.push('Missing flags');
   }
   
@@ -66,8 +63,33 @@ export function validatePayload(payload: IntakePayload): { valid: boolean; error
   };
 }
 
-export function downloadJson(payload: IntakePayload, filename: string = 'intake-data.json'): void {
-  const jsonString = JSON.stringify(payload, null, 2);
+export function validateUserProfile(profile: UserProfile): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  
+  if (!profile.id) {
+    errors.push('Missing profile id');
+  }
+  
+  if (!profile.gradeLevel) {
+    errors.push('Missing gradeLevel');
+  }
+  
+  if (!profile.readingProfile) {
+    errors.push('Missing readingProfile');
+  }
+  
+  if (!profile.preferences) {
+    errors.push('Missing preferences');
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+export function downloadJson(data: object, filename: string = 'intake-data.json'): void {
+  const jsonString = JSON.stringify(data, null, 2);
   const blob = new Blob([jsonString], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   
