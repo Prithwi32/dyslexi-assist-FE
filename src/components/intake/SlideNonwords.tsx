@@ -1,16 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useIntakeStore } from '@/store/intakeStore';
 import { nonwordItems } from '@/data/intakeItems';
-import { Volume2, Mic, MicOff } from 'lucide-react';
+import { Volume2, Mic, MicOff, Square } from 'lucide-react';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
+import VoiceIndicator from '@/components/ui/VoiceIndicator';
 
 const SlideNonwords = () => {
   const [currentItem, setCurrentItem] = useState(0);
   const [itemStartTime, setItemStartTime] = useState(Date.now());
+  const [isRecordingItem, setIsRecordingItem] = useState(false);
   const { micEnabled, addTask } = useIntakeStore();
   const { speak, isLoading } = useTextToSpeech();
-  const { startRecording, stopAndTranscribe } = useSpeechToText();
+  const { startRecording, stopAndTranscribe, isRecording, isTranscribing, interimTranscript, reset } = useSpeechToText();
+  const hasStartedRef = useRef(false);
 
   const useVoiceMode = micEnabled;
   const item = nonwordItems[currentItem];
@@ -18,13 +21,23 @@ const SlideNonwords = () => {
 
   useEffect(() => {
     setItemStartTime(Date.now());
-  }, [currentItem]);
+    hasStartedRef.current = false;
+    setIsRecordingItem(false);
+    reset();
+  }, [currentItem, reset]);
 
   const handlePlayAudio = async () => {
     await speak(item.word);
   };
 
-  const handleVoiceAttempt = async () => {
+  const handleStartVoice = async () => {
+    if (hasStartedRef.current) return;
+    hasStartedRef.current = true;
+    setIsRecordingItem(true);
+    await startRecording();
+  };
+
+  const handleVoiceAttempt = useCallback(async () => {
     const responseTime = Date.now() - itemStartTime;
     const result = await stopAndTranscribe();
 
@@ -39,7 +52,7 @@ const SlideNonwords = () => {
     });
 
     setCurrentItem((prev) => prev + 1);
-  };
+  }, [itemStartTime, stopAndTranscribe, item, addTask]);
 
   const handleChoice = (choice: string) => {
     const responseTime = Date.now() - itemStartTime;
@@ -57,13 +70,6 @@ const SlideNonwords = () => {
 
     setCurrentItem((prev) => prev + 1);
   };
-
-  // Start listening when entering voice mode item
-  useEffect(() => {
-    if (useVoiceMode && !isComplete) {
-      startRecording();
-    }
-  }, [currentItem, useVoiceMode, isComplete, startRecording]);
 
   if (isComplete) {
     return (
@@ -111,14 +117,42 @@ const SlideNonwords = () => {
             <div className="text-center mb-8 py-8 bg-background border-2 border-foreground">
               <span className="text-5xl font-headline font-bold">{item.word}</span>
             </div>
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={handleVoiceAttempt}
-                className="btn-newspaper-primary"
-              >
-                I've read it — Next
-              </button>
+            
+            {/* Voice recording indicator */}
+            {isRecordingItem && (
+              <div className="flex justify-center mb-4">
+                <VoiceIndicator isRecording={isRecording} />
+              </div>
+            )}
+
+            {/* Live transcript preview */}
+            {isRecording && interimTranscript && (
+              <div className="text-center mb-4 text-muted-foreground italic text-sm">
+                "{interimTranscript}"
+              </div>
+            )}
+
+            <div className="text-center space-y-4">
+              {!isRecordingItem ? (
+                <button
+                  type="button"
+                  onClick={handleStartVoice}
+                  className="btn-newspaper-primary inline-flex items-center gap-2"
+                >
+                  <Mic className="w-5 h-5" />
+                  <span>Start Speaking</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleVoiceAttempt}
+                  disabled={isTranscribing}
+                  className="btn-newspaper inline-flex items-center gap-2"
+                >
+                  <Square className="w-5 h-5" />
+                  <span>{isTranscribing ? 'Processing...' : 'Done — Next Word'}</span>
+                </button>
+              )}
             </div>
           </>
         ) : (

@@ -1,20 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useIntakeStore } from '@/store/intakeStore';
 import { realWordItems } from '@/data/intakeItems';
 import type { TaskResult } from '@/types/intake';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
-import { Volume2, Mic, MicOff, Loader2 } from 'lucide-react';
+import { Volume2, Mic, MicOff, Loader2, Square } from 'lucide-react';
+import VoiceIndicator from '@/components/ui/VoiceIndicator';
 
 const SlideRealWords = () => {
   const [currentItem, setCurrentItem] = useState(0);
   const [itemStartTime, setItemStartTime] = useState(Date.now());
+  const [isRecordingItem, setIsRecordingItem] = useState(false);
   const { micEnabled, addTask } = useIntakeStore();
+  const hasStartedRef = useRef(false);
   
   const { speak, isLoading: ttsLoading, isPlaying } = useTextToSpeech();
   const { 
     isRecording, 
     isTranscribing,
+    interimTranscript,
     startRecording, 
     stopAndTranscribe,
     reset: resetRecording
@@ -26,6 +30,8 @@ const SlideRealWords = () => {
 
   useEffect(() => {
     setItemStartTime(Date.now());
+    hasStartedRef.current = false;
+    setIsRecordingItem(false);
     resetRecording();
   }, [currentItem, resetRecording]);
 
@@ -34,6 +40,9 @@ const SlideRealWords = () => {
   };
 
   const handleStartRecording = async () => {
+    if (hasStartedRef.current) return;
+    hasStartedRef.current = true;
+    setIsRecordingItem(true);
     await startRecording();
   };
 
@@ -43,14 +52,12 @@ const SlideRealWords = () => {
     let transcript: string | null = null;
     let isCorrect: boolean | null = null;
     
-    if (isRecording) {
-      const result = await stopAndTranscribe();
-      transcript = result?.text || null;
-      
-      // Check if the transcription contains the word
-      if (transcript) {
-        isCorrect = transcript.toLowerCase().includes(item.word.toLowerCase());
-      }
+    const result = await stopAndTranscribe();
+    transcript = result?.text || null;
+    
+    // Check if the transcription contains the word
+    if (transcript) {
+      isCorrect = transcript.toLowerCase().includes(item.word.toLowerCase());
     }
 
     const taskResult: TaskResult = {
@@ -65,7 +72,7 @@ const SlideRealWords = () => {
 
     addTask(taskResult);
     setCurrentItem((prev) => prev + 1);
-  }, [itemStartTime, isRecording, stopAndTranscribe, item, addTask]);
+  }, [itemStartTime, stopAndTranscribe, item, addTask]);
 
   const handleChoice = (choice: string) => {
     const responseTime = Date.now() - itemStartTime;
@@ -78,6 +85,25 @@ const SlideRealWords = () => {
       correct: isCorrect,
       responseTimeMs: responseTime,
       errorType: isCorrect ? null : 'spelling',
+      transcript: null,
+    };
+
+    addTask(taskResult);
+    setCurrentItem((prev) => prev + 1);
+  };
+
+  const handleSkip = async () => {
+    if (isRecordingItem) {
+      await stopAndTranscribe();
+    }
+    
+    const taskResult: TaskResult = {
+      taskId: item.id,
+      type: 'real_word',
+      difficulty: item.difficulty,
+      correct: null,
+      responseTimeMs: Date.now() - itemStartTime,
+      errorType: 'skipped',
       transcript: null,
     };
 
@@ -132,8 +158,23 @@ const SlideRealWords = () => {
             <div className="text-center mb-8 py-8 bg-background border-2 border-foreground">
               <span className="text-5xl font-headline font-bold">{item.word}</span>
             </div>
+            
+            {/* Voice recording indicator */}
+            {isRecordingItem && (
+              <div className="flex justify-center mb-4">
+                <VoiceIndicator isRecording={isRecording} />
+              </div>
+            )}
+
+            {/* Live transcript preview */}
+            {isRecording && interimTranscript && (
+              <div className="text-center mb-4 text-muted-foreground italic text-sm">
+                "{interimTranscript}"
+              </div>
+            )}
+
             <div className="text-center space-y-4">
-              {!isRecording ? (
+              {!isRecordingItem ? (
                 <button
                   type="button"
                   onClick={handleStartRecording}
@@ -147,10 +188,11 @@ const SlideRealWords = () => {
                 <button
                   type="button"
                   onClick={handleStopAndSubmit}
-                  className="btn-newspaper inline-flex items-center gap-2 animate-pulse"
+                  disabled={isTranscribing}
+                  className="btn-newspaper inline-flex items-center gap-2"
                 >
-                  <Mic className="w-5 h-5 text-destructive" />
-                  <span>Stop & Submit</span>
+                  <Square className="w-5 h-5" />
+                  <span>{isTranscribing ? 'Processing...' : 'Stop & Submit'}</span>
                 </button>
               )}
               
@@ -164,10 +206,8 @@ const SlideRealWords = () => {
               <div>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (isRecording) stopAndTranscribe();
-                    handleStopAndSubmit();
-                  }}
+                  onClick={handleSkip}
+                  disabled={isTranscribing}
                   className="text-muted-foreground hover:text-foreground underline text-sm"
                 >
                   Skip this word

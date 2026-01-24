@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 interface TranscriptionResult {
   text: string;
@@ -52,12 +52,26 @@ export function useSpeechToText(options: UseSTTOptions = {}) {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [transcription, setTranscription] = useState<string | null>(null);
+  const [interimTranscript, setInterimTranscript] = useState<string>('');
   
   const recognitionRef = useRef<InstanceType<SpeechRecognitionType> | null>(null);
   const startTimeRef = useRef<number>(0);
   const transcriptRef = useRef<string>('');
+  const isRecordingRef = useRef<boolean>(false);
+  const stopResolveRef = useRef<((result: TranscriptionResult) => void) | null>(null);
+
+  // Keep isRecordingRef in sync with state
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
 
   const startRecording = useCallback(async () => {
+    // Prevent double-start
+    if (isRecordingRef.current || recognitionRef.current) {
+      console.log('Already recording, ignoring start request');
+      return;
+    }
+
     try {
       // Use browser's built-in Web Speech API
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -74,25 +88,34 @@ export function useSpeechToText(options: UseSTTOptions = {}) {
       recognitionRef.current = recognition;
       startTimeRef.current = Date.now();
       transcriptRef.current = '';
+      setInterimTranscript('');
 
       recognition.onstart = () => {
+        console.log('Speech recognition started');
+        isRecordingRef.current = true;
         setIsRecording(true);
         options.onStart?.();
       };
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
         let finalTranscript = '';
+        let interim = '';
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const result = event.results[i];
           if (result.isFinal) {
             finalTranscript += result[0].transcript;
+          } else {
+            interim += result[0].transcript;
           }
         }
         
         if (finalTranscript) {
           transcriptRef.current += finalTranscript;
+          console.log('Final transcript:', transcriptRef.current);
         }
+        
+        setInterimTranscript(interim);
       };
 
       recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -103,37 +126,54 @@ export function useSpeechToText(options: UseSTTOptions = {}) {
       };
 
       recognition.onend = () => {
-        // Recognition ended naturally
+        console.log('Speech recognition ended');
+        isRecordingRef.current = false;
+        setIsRecording(false);
+        setInterimTranscript('');
+        
+        // If there's a pending stop promise, resolve it
+        if (stopResolveRef.current) {
+          const result: TranscriptionResult = { text: transcriptRef.current.trim() };
+          stopResolveRef.current(result);
+          stopResolveRef.current = null;
+        }
       };
 
       recognition.start();
+      console.log('Recognition.start() called');
     } catch (error) {
       console.error('Speech recognition error:', error);
+      isRecordingRef.current = false;
+      setIsRecording(false);
       options.onError?.(error instanceof Error ? error.message : 'Could not start speech recognition');
     }
   }, [options]);
 
-  const stopRecording = useCallback(async () => {
-    if (!recognitionRef.current || !isRecording) return;
-
+  const stopRecording = useCallback(async (): Promise<Blob> => {
+    console.log('stopRecording called, isRecordingRef:', isRecordingRef.current);
+    
     const duration = Date.now() - startTimeRef.current;
     
-    return new Promise<Blob>((resolve) => {
-      recognitionRef.current!.onend = () => {
-        setIsRecording(false);
-        options.onStop?.(duration);
-        
-        // Create a dummy blob for compatibility
-        const blob = new Blob(['audio'], { type: 'audio/webm' });
-        setAudioBlob(blob);
-        resolve(blob);
-      };
-      
-      recognitionRef.current!.stop();
-    });
-  }, [isRecording, options]);
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.log('Error stopping recognition:', e);
+      }
+      recognitionRef.current = null;
+    }
+    
+    isRecordingRef.current = false;
+    setIsRecording(false);
+    options.onStop?.(duration);
+    
+    // Create a dummy blob for compatibility
+    const blob = new Blob(['audio'], { type: 'audio/webm' });
+    setAudioBlob(blob);
+    return blob;
+  }, [options]);
 
-  const transcribe = useCallback(async () => {
+  const transcribe = useCallback(async (): Promise<TranscriptionResult> => {
     // With Web Speech API, transcription happens in real-time
     // This just returns the accumulated transcript
     setIsTranscribing(true);
@@ -150,19 +190,81 @@ export function useSpeechToText(options: UseSTTOptions = {}) {
     }
   }, [options]);
 
-  const stopAndTranscribe = useCallback(async () => {
-    await stopRecording();
+  const stopAndTranscribe = useCallback(async (): Promise<TranscriptionResult> => {
+    console.log('stopAndTranscribe called');
+    setIsTranscribing(true);
     
-    // Small delay to ensure all results are processed
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    return await transcribe();
-  }, [stopRecording, transcribe]);
+    return new Promise<TranscriptionResult>((resolve) => {
+      const duration = Date.now() - startTimeRef.current;
+      
+      if (recognitionRef.current) {
+        // Set up the resolve callback for when onend fires
+        stopResolveRef.current = (result) => {
+          setIsTranscribing(false);
+          setTranscription(result.text);
+          options.onTranscription?.(result);
+          options.onStop?.(duration);
+          resolve(result);
+        };
+        
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          console.log('Error stopping recognition:', e);
+          // Fallback: resolve immediately with current transcript
+          const result: TranscriptionResult = { text: transcriptRef.current.trim() };
+          stopResolveRef.current = null;
+          setIsTranscribing(false);
+          setTranscription(result.text);
+          options.onTranscription?.(result);
+          options.onStop?.(duration);
+          resolve(result);
+        }
+        
+        // Timeout fallback in case onend doesn't fire
+        setTimeout(() => {
+          if (stopResolveRef.current) {
+            console.log('Timeout: resolving with current transcript');
+            const result: TranscriptionResult = { text: transcriptRef.current.trim() };
+            stopResolveRef.current = null;
+            setIsTranscribing(false);
+            setTranscription(result.text);
+            options.onTranscription?.(result);
+            options.onStop?.(duration);
+            resolve(result);
+          }
+        }, 500);
+      } else {
+        // No recognition running, just return current transcript
+        const result: TranscriptionResult = { text: transcriptRef.current.trim() };
+        setIsTranscribing(false);
+        setTranscription(result.text);
+        options.onTranscription?.(result);
+        resolve(result);
+      }
+      
+      recognitionRef.current = null;
+      isRecordingRef.current = false;
+      setIsRecording(false);
+    });
+  }, [options]);
 
   const reset = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch (e) {
+        // Ignore
+      }
+      recognitionRef.current = null;
+    }
+    isRecordingRef.current = false;
+    setIsRecording(false);
     setAudioBlob(null);
     setTranscription(null);
+    setInterimTranscript('');
     transcriptRef.current = '';
+    stopResolveRef.current = null;
   }, []);
 
   return {
@@ -170,6 +272,7 @@ export function useSpeechToText(options: UseSTTOptions = {}) {
     isTranscribing,
     audioBlob,
     transcription,
+    interimTranscript,
     startRecording,
     stopRecording,
     stopAndTranscribe,
