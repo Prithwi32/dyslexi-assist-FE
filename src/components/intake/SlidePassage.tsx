@@ -4,6 +4,7 @@ import { fluencyPassage, fluencyPassageWordCount } from '@/data/intakeItems';
 import { Volume2, Mic, MicOff, Play, Square, Clock } from 'lucide-react';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
+import VoiceIndicator from '@/components/ui/VoiceIndicator';
 
 const SlidePassage = () => {
   const [isStarted, setIsStarted] = useState(false);
@@ -13,27 +14,27 @@ const SlidePassage = () => {
   
   const { micEnabled, setPassageResults } = useIntakeStore();
   const { speak, isLoading } = useTextToSpeech();
-  const { startRecording, stopAndTranscribe, isRecording } = useSpeechToText();
+  const { startRecording, stopAndTranscribe, isRecording, isTranscribing, interimTranscript } = useSpeechToText();
   const useVoiceMode = micEnabled;
   const maxTime = 45; // seconds
   const transcriptRef = useRef<string | null>(null);
 
   const handleStop = useCallback(async () => {
-    if (startTime) {
-      const totalTimeMs = Date.now() - startTime;
-      const totalTimeSec = totalTimeMs / 1000;
-      
-      // Get transcript if voice mode
-      if (useVoiceMode) {
-        const result = await stopAndTranscribe();
-        transcriptRef.current = result.text || null;
-      }
-
-      const wpm = useVoiceMode ? Math.round((fluencyPassageWordCount / totalTimeSec) * 60) : null;
-      
-      setPassageResults(wpm, totalTimeMs, transcriptRef.current);
-      setIsComplete(true);
+    if (!startTime) return;
+    
+    const totalTimeMs = Date.now() - startTime;
+    const totalTimeSec = totalTimeMs / 1000;
+    
+    // Get transcript if voice mode
+    if (useVoiceMode) {
+      const result = await stopAndTranscribe();
+      transcriptRef.current = result.text || null;
     }
+
+    const wpm = useVoiceMode ? Math.round((fluencyPassageWordCount / totalTimeSec) * 60) : null;
+    
+    setPassageResults(wpm, totalTimeMs, transcriptRef.current);
+    setIsComplete(true);
   }, [startTime, useVoiceMode, setPassageResults, stopAndTranscribe]);
 
   useEffect(() => {
@@ -52,12 +53,12 @@ const SlidePassage = () => {
     return () => clearInterval(interval);
   }, [isStarted, isComplete, startTime, useVoiceMode, handleStop]);
 
-  const handleStart = () => {
+  const handleStart = async () => {
     setIsStarted(true);
     setStartTime(Date.now());
     
     if (useVoiceMode) {
-      startRecording();
+      await startRecording();
     }
   };
 
@@ -111,6 +112,20 @@ const SlidePassage = () => {
         )}
       </div>
 
+      {/* Voice recording indicator */}
+      {useVoiceMode && isStarted && (
+        <div className="flex justify-center">
+          <VoiceIndicator isRecording={isRecording} />
+        </div>
+      )}
+
+      {/* Live transcript preview */}
+      {useVoiceMode && isRecording && interimTranscript && (
+        <div className="text-center text-muted-foreground italic text-sm max-w-md mx-auto">
+          "{interimTranscript}"
+        </div>
+      )}
+
       {/* Controls */}
       <div className="text-center">
         {!isStarted ? (
@@ -139,10 +154,11 @@ const SlidePassage = () => {
           <button
             type="button"
             onClick={handleStop}
+            disabled={isTranscribing}
             className="btn-newspaper inline-flex items-center gap-2"
           >
             <Square className="w-5 h-5" />
-            <span>I'm Done</span>
+            <span>{isTranscribing ? 'Processing...' : "I'm Done"}</span>
           </button>
         )}
       </div>

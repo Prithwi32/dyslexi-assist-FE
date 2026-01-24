@@ -3,6 +3,7 @@ import { useIntakeStore } from '@/store/intakeStore';
 import { ranGridItems } from '@/data/intakeItems';
 import { Mic, MicOff, Play, Square } from 'lucide-react';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
+import VoiceIndicator from '@/components/ui/VoiceIndicator';
 
 const SlideRAN = () => {
   const [isStarted, setIsStarted] = useState(false);
@@ -12,44 +13,44 @@ const SlideRAN = () => {
   const [misTaps, setMisTaps] = useState(0);
   
   const { micEnabled, addTask } = useIntakeStore();
-  const { startRecording, stopAndTranscribe, isRecording } = useSpeechToText();
+  const { startRecording, stopAndTranscribe, isRecording, isTranscribing, interimTranscript } = useSpeechToText();
   const useVoiceMode = micEnabled;
   const transcriptRef = useRef<string | null>(null);
 
-  const handleStart = () => {
+  const handleStart = async () => {
     setIsStarted(true);
     setStartTime(Date.now());
     setTappedCells(new Set());
     setMisTaps(0);
     
     if (useVoiceMode) {
-      startRecording();
+      await startRecording();
     }
   };
 
   const handleStop = useCallback(async () => {
-    if (startTime) {
-      const totalTime = Date.now() - startTime;
-      
-      // Get transcript if voice mode
-      if (useVoiceMode) {
-        const result = await stopAndTranscribe();
-        transcriptRef.current = result.text || null;
-      }
-
-      // Add as a task result
-      addTask({
-        taskId: 'ran_1',
-        type: 'rapid_naming',
-        difficulty: 2,
-        correct: misTaps === 0,
-        responseTimeMs: totalTime,
-        errorType: misTaps > 0 ? 'sequence_error' : null,
-        transcript: transcriptRef.current,
-      });
-
-      setIsComplete(true);
+    if (!startTime) return;
+    
+    const totalTime = Date.now() - startTime;
+    
+    // Get transcript if voice mode
+    if (useVoiceMode) {
+      const result = await stopAndTranscribe();
+      transcriptRef.current = result.text || null;
     }
+
+    // Add as a task result
+    addTask({
+      taskId: 'ran_1',
+      type: 'rapid_naming',
+      difficulty: 2,
+      correct: misTaps === 0,
+      responseTimeMs: totalTime,
+      errorType: misTaps > 0 ? 'sequence_error' : null,
+      transcript: transcriptRef.current,
+    });
+
+    setIsComplete(true);
   }, [startTime, useVoiceMode, misTaps, addTask, stopAndTranscribe]);
 
   const handleCellTap = (index: number) => {
@@ -107,6 +108,20 @@ const SlideRAN = () => {
           )}
         </div>
 
+        {/* Voice recording indicator */}
+        {useVoiceMode && isStarted && (
+          <div className="flex justify-center mb-4">
+            <VoiceIndicator isRecording={isRecording} />
+          </div>
+        )}
+
+        {/* Live transcript preview */}
+        {useVoiceMode && isRecording && interimTranscript && (
+          <div className="text-center mb-4 text-muted-foreground italic text-sm">
+            "{interimTranscript}"
+          </div>
+        )}
+
         {/* Start/Stop controls */}
         {!isStarted ? (
           <div className="text-center mb-6">
@@ -124,10 +139,11 @@ const SlideRAN = () => {
             <button
               type="button"
               onClick={handleStop}
+              disabled={isTranscribing}
               className="btn-newspaper inline-flex items-center gap-2"
             >
               <Square className="w-5 h-5" />
-              <span>Stop</span>
+              <span>{isTranscribing ? 'Processing...' : 'Stop'}</span>
             </button>
           </div>
         )}
