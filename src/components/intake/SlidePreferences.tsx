@@ -1,28 +1,23 @@
 import { useIntakeStore } from '@/store/intakeStore';
 
-const preferredModes = [
-  { value: 'listening_first', label: 'Listening First', description: 'I prefer to hear things before reading' },
-  { value: 'silent_reading', label: 'Silent Reading', description: 'I like to read quietly to myself' },
-  { value: 'reading_aloud', label: 'Reading Aloud', description: 'I understand better when I read out loud' },
-  { value: 'mixed', label: 'Mixed', description: 'I like a combination of approaches' },
+const pacingOptions = [
+  { value: 'SLOW', label: 'Slow', description: 'I prefer to take my time' },
+  { value: 'MEDIUM', label: 'Medium', description: 'A balanced pace works for me' },
+  { value: 'FAST', label: 'Fast', description: 'I like to move quickly' },
 ];
 
-const fontSizes = [
-  { value: 'small', label: 'Small' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'large', label: 'Large' },
+const fontSizeOptions = [
+  { value: 0.8, label: 'Smaller' },
+  { value: 1.0, label: 'Normal' },
+  { value: 1.2, label: 'Larger' },
+  { value: 1.5, label: 'Extra Large' },
 ];
 
-const themes = [
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'soft', label: 'Soft' },
-];
-
-const highlightModes = [
-  { value: 'word', label: 'Word', description: 'Highlight each word' },
-  { value: 'line', label: 'Line', description: 'Highlight the whole line' },
-  { value: 'none', label: 'None', description: 'No highlighting' },
+const highlightColorOptions = [
+  { value: '#FFFF00', label: 'Yellow', colorClass: 'bg-yellow-300' },
+  { value: '#90EE90', label: 'Green', colorClass: 'bg-green-300' },
+  { value: '#87CEEB', label: 'Blue', colorClass: 'bg-blue-300' },
+  { value: '#FFB6C1', label: 'Pink', colorClass: 'bg-pink-300' },
 ];
 
 const SlidePreferences = () => {
@@ -38,30 +33,30 @@ const SlidePreferences = () => {
         </p>
       </div>
 
-      {/* Preferred mode */}
+      {/* Pacing preference */}
       <div className="newspaper-card">
         <h3 className="font-headline font-bold text-lg mb-4">
-          How do you prefer to learn new material?
+          What pace feels most comfortable?
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {preferredModes.map((mode) => (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {pacingOptions.map((option) => (
             <button
-              key={mode.value}
+              key={option.value}
               type="button"
-              onClick={() => setPreferences({ reading_mode: mode.value as any })}
+              onClick={() => setPreferences({ pacingPreference: option.value as 'SLOW' | 'MEDIUM' | 'FAST' })}
               className={`p-4 border-2 border-foreground text-left transition-colors ${
-                preferences.reading_mode === mode.value
+                preferences.pacingPreference === option.value
                   ? 'bg-foreground text-background'
                   : 'bg-transparent hover:bg-accent'
               }`}
             >
-              <span className="font-headline font-bold block">{mode.label}</span>
+              <span className="font-headline font-bold block">{option.label}</span>
               <span className={`text-sm ${
-                preferences.reading_mode === mode.value
+                preferences.pacingPreference === option.value
                   ? 'text-background/80'
                   : 'text-muted-foreground'
               }`}>
-                {mode.description}
+                {option.description}
               </span>
             </button>
           ))}
@@ -73,14 +68,14 @@ const SlidePreferences = () => {
         <h3 className="font-headline font-bold text-lg mb-4">
           What text size is comfortable for you?
         </h3>
-        <div className="flex gap-3">
-          {fontSizes.map((size) => (
+        <div className="flex gap-3 flex-wrap">
+          {fontSizeOptions.map((size) => (
             <button
               key={size.value}
               type="button"
-              onClick={() => setPreferences({ font_size: size.value as any })}
-              className={`flex-1 py-3 px-4 border-2 border-foreground font-headline font-bold transition-colors ${
-                preferences.font_size === size.value
+              onClick={() => setPreferences({ fontSizeMultiplier: size.value })}
+              className={`flex-1 min-w-[100px] py-3 px-4 border-2 border-foreground font-headline font-bold transition-colors ${
+                preferences.fontSizeMultiplier === size.value
                   ? 'bg-foreground text-background'
                   : 'bg-transparent hover:bg-accent'
               }`}
@@ -91,56 +86,87 @@ const SlidePreferences = () => {
         </div>
       </div>
 
-      {/* Theme */}
+      {/* Highlight color */}
       <div className="newspaper-card">
         <h3 className="font-headline font-bold text-lg mb-4">
-          Which background feels easiest to read?
+          Which highlight color helps you focus?
         </h3>
-        <div className="flex gap-3">
-          {themes.map((theme) => (
+        <div className="flex gap-4 justify-center">
+          {highlightColorOptions.map((color) => (
             <button
-              key={theme.value}
+              key={color.value}
               type="button"
-              onClick={() => setPreferences({ theme: theme.value as any })}
-              className={`flex-1 py-3 px-4 border-2 border-foreground font-headline font-bold transition-colors ${
-                preferences.theme === theme.value
-                  ? 'bg-foreground text-background'
-                  : 'bg-transparent hover:bg-accent'
+              onClick={() => setPreferences({ highlightColor: color.value })}
+              className={`w-16 h-16 rounded-full border-4 transition-all ${color.colorClass} ${
+                preferences.highlightColor === color.value
+                  ? 'border-foreground scale-110'
+                  : 'border-transparent hover:border-muted-foreground'
               }`}
-            >
-              {theme.label}
-            </button>
+              title={color.label}
+            />
           ))}
         </div>
       </div>
 
-      {/* Highlight mode */}
+      {/* Voice feedback toggle */}
       <div className="newspaper-card">
         <h3 className="font-headline font-bold text-lg mb-4">
-          How would you like text to be highlighted?
+          Would you like voice feedback while reading?
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {highlightModes.map((mode) => (
-            <button
-              key={mode.value}
-              type="button"
-              onClick={() => setPreferences({ highlight_mode: mode.value as any })}
-              className={`p-4 border-2 border-foreground text-center transition-colors ${
-                preferences.highlight_mode === mode.value
-                  ? 'bg-foreground text-background'
-                  : 'bg-transparent hover:bg-accent'
-              }`}
-            >
-              <span className="font-headline font-bold block">{mode.label}</span>
-              <span className={`text-sm ${
-                preferences.highlight_mode === mode.value
-                  ? 'text-background/80'
-                  : 'text-muted-foreground'
-              }`}>
-                {mode.description}
-              </span>
-            </button>
-          ))}
+        <div className="flex gap-4">
+          <button
+            type="button"
+            onClick={() => setPreferences({ enableVoiceFeedback: true })}
+            className={`flex-1 py-3 px-4 border-2 border-foreground font-headline font-bold transition-colors ${
+              preferences.enableVoiceFeedback
+                ? 'bg-foreground text-background'
+                : 'bg-transparent hover:bg-accent'
+            }`}
+          >
+            Yes, I'd like audio
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreferences({ enableVoiceFeedback: false })}
+            className={`flex-1 py-3 px-4 border-2 border-foreground font-headline font-bold transition-colors ${
+              !preferences.enableVoiceFeedback
+                ? 'bg-foreground text-background'
+                : 'bg-transparent hover:bg-accent'
+            }`}
+          >
+            No, just visual
+          </button>
+        </div>
+      </div>
+
+      {/* Visual highlighting toggle */}
+      <div className="newspaper-card">
+        <h3 className="font-headline font-bold text-lg mb-4">
+          Would you like words highlighted as you read?
+        </h3>
+        <div className="flex gap-4">
+          <button
+            type="button"
+            onClick={() => setPreferences({ enableVisualHighlighting: true })}
+            className={`flex-1 py-3 px-4 border-2 border-foreground font-headline font-bold transition-colors ${
+              preferences.enableVisualHighlighting
+                ? 'bg-foreground text-background'
+                : 'bg-transparent hover:bg-accent'
+            }`}
+          >
+            Yes, highlight words
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreferences({ enableVisualHighlighting: false })}
+            className={`flex-1 py-3 px-4 border-2 border-foreground font-headline font-bold transition-colors ${
+              !preferences.enableVisualHighlighting
+                ? 'bg-foreground text-background'
+                : 'bg-transparent hover:bg-accent'
+            }`}
+          >
+            No highlighting
+          </button>
         </div>
       </div>
     </div>

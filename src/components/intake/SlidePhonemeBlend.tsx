@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useIntakeStore } from '@/store/intakeStore';
 import { phonemeBlendItems } from '@/data/intakeItems';
-import type { TaskResult } from '@/types/intake';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { Volume2, Loader2 } from 'lucide-react';
 
 const SlidePhonemeBlend = () => {
   const [currentItem, setCurrentItem] = useState(0);
   const [itemStartTime, setItemStartTime] = useState(Date.now());
-  const { addPhonemeBlend } = useIntakeStore();
+  const { addTask } = useIntakeStore();
   const { speak, isLoading, isPlaying } = useTextToSpeech();
 
   const item = phonemeBlendItems[currentItem];
@@ -27,16 +26,16 @@ const SlidePhonemeBlend = () => {
     const responseTime = Date.now() - itemStartTime;
     const isCorrect = choice === item.correctAnswer;
 
-    const result: TaskResult = {
-      item_id: item.id,
-      task_type: 'phoneme_blending_mcq',
-      response: choice,
-      expected: item.correctAnswer,
-      is_correct: isCorrect,
-      response_time_ms: responseTime,
-    };
+    addTask({
+      taskId: item.id,
+      type: 'phoneme_blend',
+      difficulty: item.difficulty,
+      correct: isCorrect,
+      responseTimeMs: responseTime,
+      errorType: isCorrect ? null : item.distractorType,
+      transcript: null,
+    });
 
-    addPhonemeBlend(result);
     setCurrentItem((prev) => prev + 1);
   };
 

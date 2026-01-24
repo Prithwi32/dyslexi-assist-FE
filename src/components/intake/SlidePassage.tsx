@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useIntakeStore } from '@/store/intakeStore';
 import { fluencyPassage, fluencyPassageWordCount } from '@/data/intakeItems';
-import type { PassageResult } from '@/types/intake';
 import { Volume2, Mic, MicOff, Play, Square, Clock } from 'lucide-react';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { useSpeechToText } from '@/hooks/useSpeechToText';
 
 const SlidePassage = () => {
   const [isStarted, setIsStarted] = useState(false);
@@ -11,10 +11,30 @@ const SlidePassage = () => {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   
-  const { micEnabled, setPassage } = useIntakeStore();
+  const { micEnabled, setPassageResults } = useIntakeStore();
   const { speak, isLoading } = useTextToSpeech();
+  const { startRecording, stopAndTranscribe, isRecording } = useSpeechToText();
   const useVoiceMode = micEnabled;
   const maxTime = 45; // seconds
+  const transcriptRef = useRef<string | null>(null);
+
+  const handleStop = useCallback(async () => {
+    if (startTime) {
+      const totalTimeMs = Date.now() - startTime;
+      const totalTimeSec = totalTimeMs / 1000;
+      
+      // Get transcript if voice mode
+      if (useVoiceMode) {
+        const result = await stopAndTranscribe();
+        transcriptRef.current = result.text || null;
+      }
+
+      const wpm = useVoiceMode ? Math.round((fluencyPassageWordCount / totalTimeSec) * 60) : null;
+      
+      setPassageResults(wpm, totalTimeMs, transcriptRef.current);
+      setIsComplete(true);
+    }
+  }, [startTime, useVoiceMode, setPassageResults, stopAndTranscribe]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -30,33 +50,19 @@ const SlidePassage = () => {
       }, 100);
     }
     return () => clearInterval(interval);
-  }, [isStarted, isComplete, startTime, useVoiceMode]);
+  }, [isStarted, isComplete, startTime, useVoiceMode, handleStop]);
 
   const handleStart = () => {
     setIsStarted(true);
     setStartTime(Date.now());
+    
+    if (useVoiceMode) {
+      startRecording();
+    }
   };
 
   const handlePlayAudio = async () => {
     await speak(fluencyPassage);
-  };
-
-  const handleStop = () => {
-    if (startTime) {
-      const totalTime = (Date.now() - startTime) / 1000;
-      const wpm = useVoiceMode ? Math.round((fluencyPassageWordCount / totalTime) * 60) : null;
-      
-      const result: PassageResult = {
-        mode: useVoiceMode ? 'voice' : 'listen',
-        duration_seconds: totalTime,
-        word_count: fluencyPassageWordCount,
-        transcription: null,
-        words_per_minute: wpm,
-      };
-
-      setPassage(result);
-      setIsComplete(true);
-    }
   };
 
   if (isComplete) {

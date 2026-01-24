@@ -1,8 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useIntakeStore } from '@/store/intakeStore';
 import { ranGridItems } from '@/data/intakeItems';
-import type { RapidNamingResult } from '@/types/intake';
 import { Mic, MicOff, Play, Square } from 'lucide-react';
+import { useSpeechToText } from '@/hooks/useSpeechToText';
 
 const SlideRAN = () => {
   const [isStarted, setIsStarted] = useState(false);
@@ -11,32 +11,46 @@ const SlideRAN = () => {
   const [tappedCells, setTappedCells] = useState<Set<number>>(new Set());
   const [misTaps, setMisTaps] = useState(0);
   
-  const { micEnabled, setRapidNaming } = useIntakeStore();
+  const { micEnabled, addTask } = useIntakeStore();
+  const { startRecording, stopAndTranscribe, isRecording } = useSpeechToText();
   const useVoiceMode = micEnabled;
+  const transcriptRef = useRef<string | null>(null);
 
   const handleStart = () => {
     setIsStarted(true);
     setStartTime(Date.now());
     setTappedCells(new Set());
     setMisTaps(0);
+    
+    if (useVoiceMode) {
+      startRecording();
+    }
   };
 
-  const handleStop = useCallback(() => {
+  const handleStop = useCallback(async () => {
     if (startTime) {
       const totalTime = Date.now() - startTime;
       
-      const result: RapidNamingResult = {
-        mode: useVoiceMode ? 'voice' : 'tap',
-        total_time_ms: totalTime,
-        items_count: ranGridItems.length,
-        errors: misTaps,
-        transcription: null,
-      };
+      // Get transcript if voice mode
+      if (useVoiceMode) {
+        const result = await stopAndTranscribe();
+        transcriptRef.current = result.text || null;
+      }
 
-      setRapidNaming(result);
+      // Add as a task result
+      addTask({
+        taskId: 'ran_1',
+        type: 'rapid_naming',
+        difficulty: 2,
+        correct: misTaps === 0,
+        responseTimeMs: totalTime,
+        errorType: misTaps > 0 ? 'sequence_error' : null,
+        transcript: transcriptRef.current,
+      });
+
       setIsComplete(true);
     }
-  }, [startTime, useVoiceMode, misTaps, setRapidNaming]);
+  }, [startTime, useVoiceMode, misTaps, addTask, stopAndTranscribe]);
 
   const handleCellTap = (index: number) => {
     if (!isStarted || isComplete) return;

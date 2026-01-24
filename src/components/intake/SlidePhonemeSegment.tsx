@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useIntakeStore } from '@/store/intakeStore';
 import { phonemeSegmentItems } from '@/data/intakeItems';
-import type { TaskResult } from '@/types/intake';
 import { Volume2 } from 'lucide-react';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 const SlidePhonemeSegment = () => {
   const [currentItem, setCurrentItem] = useState(0);
   const [itemStartTime, setItemStartTime] = useState(Date.now());
-  const { addPhonemeSegment, getTimeOnScreen } = useIntakeStore();
+  const { addTask } = useIntakeStore();
   const { speak, isLoading } = useTextToSpeech();
 
   const item = phonemeSegmentItems[currentItem];
@@ -26,16 +25,16 @@ const SlidePhonemeSegment = () => {
     const responseTime = Date.now() - itemStartTime;
     const isCorrect = count === item.correctCount;
 
-    const result: TaskResult = {
-      item_id: item.id,
-      task_type: 'phoneme_segmentation',
-      response: String(count),
-      expected: String(item.correctCount),
-      is_correct: isCorrect,
-      response_time_ms: responseTime,
-    };
+    addTask({
+      taskId: item.id,
+      type: 'phoneme_segment',
+      difficulty: item.difficulty,
+      correct: isCorrect,
+      responseTimeMs: responseTime,
+      errorType: isCorrect ? null : 'counting_error',
+      transcript: null,
+    });
 
-    addPhonemeSegment(result);
     setCurrentItem((prev) => prev + 1);
   };
 
