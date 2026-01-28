@@ -12,8 +12,17 @@ const SlideNonwords = () => {
   const [isRecordingItem, setIsRecordingItem] = useState(false);
   const { micEnabled, addTask } = useIntakeStore();
   const { speak, isLoading } = useTextToSpeech();
-  const { startRecording, stopAndTranscribe, isRecording, isTranscribing, interimTranscript, reset } = useSpeechToText();
+  const {
+    startRecording,
+    stopAndTranscribe,
+    isRecording,
+    isTranscribing,
+    isCapturing,
+    liveTranscript,
+    reset,
+  } = useSpeechToText();
   const hasStartedRef = useRef(false);
+  const [sttError, setSttError] = useState<string | null>(null);
 
   const useVoiceMode = micEnabled;
   const item = nonwordItems[currentItem];
@@ -23,6 +32,7 @@ const SlideNonwords = () => {
     setItemStartTime(Date.now());
     hasStartedRef.current = false;
     setIsRecordingItem(false);
+    setSttError(null);
     reset();
   }, [currentItem, reset]);
 
@@ -34,12 +44,21 @@ const SlideNonwords = () => {
     if (hasStartedRef.current) return;
     hasStartedRef.current = true;
     setIsRecordingItem(true);
+    setSttError(null);
     await startRecording();
   };
 
   const handleVoiceAttempt = useCallback(async () => {
     const responseTime = Date.now() - itemStartTime;
     const result = await stopAndTranscribe();
+    const text = (result.text ?? '').trim();
+    const transcript = text ? text : (liveTranscript.trim() ? liveTranscript.trim() : null);
+
+    if (!transcript) {
+      setSttError('No speech was captured. Please try again.');
+      await startRecording();
+      return;
+    }
 
     addTask({
       taskId: item.id,
@@ -48,11 +67,11 @@ const SlideNonwords = () => {
       correct: null, // Cannot determine without ASR comparison
       responseTimeMs: responseTime,
       errorType: null,
-      transcript: result.text || null,
+      transcript,
     });
 
     setCurrentItem((prev) => prev + 1);
-  }, [itemStartTime, stopAndTranscribe, item, addTask]);
+  }, [itemStartTime, stopAndTranscribe, item, addTask, liveTranscript, startRecording]);
 
   const handleChoice = (choice: string) => {
     const responseTime = Date.now() - itemStartTime;
@@ -121,14 +140,29 @@ const SlideNonwords = () => {
             {/* Voice recording indicator */}
             {isRecordingItem && (
               <div className="flex justify-center mb-4">
-                <VoiceIndicator isRecording={isRecording} />
+                <VoiceIndicator
+                  isRecording={isRecording}
+                  status={isTranscribing ? 'processing' : 'listening'}
+                />
               </div>
             )}
 
             {/* Live transcript preview */}
-            {isRecording && interimTranscript && (
-              <div className="text-center mb-4 text-muted-foreground italic text-sm">
-                "{interimTranscript}"
+            {isRecordingItem && (
+              <div className="mx-auto mb-4 max-w-lg">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Live transcript</div>
+                <div className="bg-background border border-border rounded-md px-3 py-2 text-sm">
+                  {liveTranscript ? (
+                    <span className="text-foreground">{liveTranscript}</span>
+                  ) : isCapturing ? (
+                    <span className="text-muted-foreground italic">(listening…)</span>
+                  ) : (
+                    <span className="text-muted-foreground italic">(press start and speak)</span>
+                  )}
+                </div>
+                {sttError && (
+                  <div className="mt-2 text-sm text-destructive">{sttError}</div>
+                )}
               </div>
             )}
 

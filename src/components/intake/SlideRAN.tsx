@@ -8,12 +8,20 @@ import VoiceIndicator from '@/components/ui/VoiceIndicator';
 const SlideRAN = () => {
   const [isStarted, setIsStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [sttError, setSttError] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [tappedCells, setTappedCells] = useState<Set<number>>(new Set());
   const [misTaps, setMisTaps] = useState(0);
   
   const { micEnabled, addTask } = useIntakeStore();
-  const { startRecording, stopAndTranscribe, isRecording, isTranscribing, interimTranscript } = useSpeechToText();
+  const {
+    startRecording,
+    stopAndTranscribe,
+    isRecording,
+    isTranscribing,
+    isCapturing,
+    liveTranscript,
+  } = useSpeechToText();
   const useVoiceMode = micEnabled;
   const transcriptRef = useRef<string | null>(null);
 
@@ -22,6 +30,7 @@ const SlideRAN = () => {
     setStartTime(Date.now());
     setTappedCells(new Set());
     setMisTaps(0);
+    setSttError(null);
     
     if (useVoiceMode) {
       await startRecording();
@@ -36,7 +45,17 @@ const SlideRAN = () => {
     // Get transcript if voice mode
     if (useVoiceMode) {
       const result = await stopAndTranscribe();
-      transcriptRef.current = result.text || null;
+      const text = (result.text ?? '').trim();
+      const resolved = text ? text : (liveTranscript.trim() ? liveTranscript.trim() : null);
+
+      if (!resolved) {
+        // Don't let a verbal task submit with null transcript.
+        setSttError('No speech was captured. Please try again (make sure mic permission is allowed).');
+        await startRecording();
+        return;
+      }
+
+      transcriptRef.current = resolved;
     }
 
     // Add as a task result
@@ -51,7 +70,7 @@ const SlideRAN = () => {
     });
 
     setIsComplete(true);
-  }, [startTime, useVoiceMode, misTaps, addTask, stopAndTranscribe]);
+  }, [startTime, useVoiceMode, misTaps, addTask, stopAndTranscribe, liveTranscript, startRecording]);
 
   const handleCellTap = (index: number) => {
     if (!isStarted || isComplete) return;
@@ -109,16 +128,29 @@ const SlideRAN = () => {
         </div>
 
         {/* Voice recording indicator */}
-        {useVoiceMode && isStarted && (
+        {useVoiceMode && isStarted && isCapturing && (
           <div className="flex justify-center mb-4">
-            <VoiceIndicator isRecording={isRecording} />
+            <VoiceIndicator
+              isRecording={isRecording}
+              status={isTranscribing ? 'processing' : 'listening'}
+            />
           </div>
         )}
 
         {/* Live transcript preview */}
-        {useVoiceMode && isRecording && interimTranscript && (
-          <div className="text-center mb-4 text-muted-foreground italic text-sm">
-            "{interimTranscript}"
+        {useVoiceMode && isStarted && (
+          <div className="mx-auto mb-4 max-w-lg">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Live transcript</div>
+            <div className="bg-background border border-border rounded-md px-3 py-2 text-sm">
+              {liveTranscript ? (
+                <span className="text-foreground">{liveTranscript}</span>
+              ) : (
+                <span className="text-muted-foreground italic">(start speaking…)</span>
+              )}
+            </div>
+            {sttError && (
+              <div className="mt-2 text-sm text-destructive">{sttError}</div>
+            )}
           </div>
         )}
 
