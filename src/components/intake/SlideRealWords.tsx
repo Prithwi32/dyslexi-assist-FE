@@ -13,11 +13,14 @@ const SlideRealWords = () => {
   const [isRecordingItem, setIsRecordingItem] = useState(false);
   const { micEnabled, addTask } = useIntakeStore();
   const hasStartedRef = useRef(false);
+  const [sttError, setSttError] = useState<string | null>(null);
   
   const { speak, isLoading: ttsLoading, isPlaying } = useTextToSpeech();
   const { 
     isRecording, 
     isTranscribing,
+    isCapturing,
+    liveTranscript,
     interimTranscript,
     startRecording, 
     stopAndTranscribe,
@@ -32,6 +35,7 @@ const SlideRealWords = () => {
     setItemStartTime(Date.now());
     hasStartedRef.current = false;
     setIsRecordingItem(false);
+    setSttError(null);
     resetRecording();
   }, [currentItem, resetRecording]);
 
@@ -43,6 +47,7 @@ const SlideRealWords = () => {
     if (hasStartedRef.current) return;
     hasStartedRef.current = true;
     setIsRecordingItem(true);
+    setSttError(null);
     await startRecording();
   };
 
@@ -53,7 +58,14 @@ const SlideRealWords = () => {
     let isCorrect: boolean | null = null;
     
     const result = await stopAndTranscribe();
-    transcript = result?.text || null;
+    const text = (result?.text ?? '').trim();
+    transcript = text ? text : (liveTranscript.trim() ? liveTranscript.trim() : null);
+
+    if (!transcript) {
+      setSttError('No speech was captured. Please try again.');
+      await startRecording();
+      return;
+    }
     
     // Check if the transcription contains the word
     if (transcript) {
@@ -72,7 +84,7 @@ const SlideRealWords = () => {
 
     addTask(taskResult);
     setCurrentItem((prev) => prev + 1);
-  }, [itemStartTime, stopAndTranscribe, item, addTask]);
+  }, [itemStartTime, stopAndTranscribe, item, addTask, liveTranscript, startRecording]);
 
   const handleChoice = (choice: string) => {
     const responseTime = Date.now() - itemStartTime;
@@ -162,14 +174,29 @@ const SlideRealWords = () => {
             {/* Voice recording indicator */}
             {isRecordingItem && (
               <div className="flex justify-center mb-4">
-                <VoiceIndicator isRecording={isRecording} />
+                <VoiceIndicator
+                  isRecording={isRecording}
+                  status={isTranscribing ? 'processing' : 'listening'}
+                />
               </div>
             )}
 
             {/* Live transcript preview */}
-            {isRecording && interimTranscript && (
-              <div className="text-center mb-4 text-muted-foreground italic text-sm">
-                "{interimTranscript}"
+            {isRecordingItem && (
+              <div className="mx-auto mb-4 max-w-lg">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Live transcript</div>
+                <div className="bg-background border border-border rounded-md px-3 py-2 text-sm">
+                  {(liveTranscript || interimTranscript) ? (
+                    <span className="text-foreground">{liveTranscript || interimTranscript}</span>
+                  ) : isCapturing ? (
+                    <span className="text-muted-foreground italic">(listening…)</span>
+                  ) : (
+                    <span className="text-muted-foreground italic">(press start and speak)</span>
+                  )}
+                </div>
+                {sttError && (
+                  <div className="mt-2 text-sm text-destructive">{sttError}</div>
+                )}
               </div>
             )}
 
