@@ -50,9 +50,17 @@ const SlideNonwords = () => {
 
   const handleVoiceAttempt = useCallback(async () => {
     const responseTime = Date.now() - itemStartTime;
-    const result = await stopAndTranscribe();
-    const text = (result.text ?? '').trim();
-    const transcript = text ? text : (liveTranscript.trim() ? liveTranscript.trim() : null);
+    
+    let transcript: string | null = null;
+    try {
+      const result = await stopAndTranscribe();
+      const text = (result.text ?? '').trim();
+      transcript = text ? text : (liveTranscript.trim() ? liveTranscript.trim() : null);
+    } catch (error) {
+      console.error('Error during stopAndTranscribe:', error);
+      // Fallback to liveTranscript
+      transcript = liveTranscript.trim() || null;
+    }
 
     if (!transcript) {
       setSttError('No speech was captured. Please try again.');
@@ -72,6 +80,34 @@ const SlideNonwords = () => {
 
     setCurrentItem((prev) => prev + 1);
   }, [itemStartTime, stopAndTranscribe, item, addTask, liveTranscript, startRecording]);
+
+  const handleSkip = async () => {
+    let transcript: string | null = null;
+    
+    // If recording in voice mode, try to capture whatever transcript exists
+    if (isRecordingItem && useVoiceMode) {
+      try {
+        const result = await stopAndTranscribe();
+        const text = (result?.text ?? '').trim();
+        transcript = text ? text : (liveTranscript.trim() ? liveTranscript.trim() : null);
+      } catch (e) {
+        console.error('Error capturing transcript on skip:', e);
+        transcript = liveTranscript.trim() || null;
+      }
+    }
+    
+    addTask({
+      taskId: item.id,
+      type: 'nonword',
+      difficulty: item.difficulty,
+      correct: null,
+      responseTimeMs: Date.now() - itemStartTime,
+      errorType: 'skipped',
+      transcript,
+    });
+
+    setCurrentItem((prev) => prev + 1);
+  };
 
   const handleChoice = (choice: string) => {
     const responseTime = Date.now() - itemStartTime;
@@ -187,6 +223,17 @@ const SlideNonwords = () => {
                   <span>{isTranscribing ? 'Processing...' : 'Done — Next Word'}</span>
                 </button>
               )}
+              
+              <div>
+                <button
+                  type="button"
+                  onClick={handleSkip}
+                  disabled={isTranscribing}
+                  className="text-muted-foreground hover:text-foreground underline text-sm"
+                >
+                  Skip this word
+                </button>
+              </div>
             </div>
           </>
         ) : (

@@ -57,9 +57,15 @@ const SlideRealWords = () => {
     let transcript: string | null = null;
     let isCorrect: boolean | null = null;
     
-    const result = await stopAndTranscribe();
-    const text = (result?.text ?? '').trim();
-    transcript = text ? text : (liveTranscript.trim() ? liveTranscript.trim() : null);
+    try {
+      const result = await stopAndTranscribe();
+      const text = (result?.text ?? '').trim();
+      transcript = text ? text : (liveTranscript.trim() ? liveTranscript.trim() : null);
+    } catch (error) {
+      console.error('Error during stopAndTranscribe:', error);
+      // Fallback to liveTranscript
+      transcript = liveTranscript.trim() || null;
+    }
 
     if (!transcript) {
       setSttError('No speech was captured. Please try again.');
@@ -105,8 +111,19 @@ const SlideRealWords = () => {
   };
 
   const handleSkip = async () => {
-    if (isRecordingItem) {
-      await stopAndTranscribe();
+    let transcript: string | null = null;
+    
+    // If recording in voice mode, try to capture whatever transcript exists
+    if (isRecordingItem && useVoiceMode) {
+      try {
+        const result = await stopAndTranscribe();
+        const text = (result?.text ?? '').trim();
+        transcript = text ? text : (liveTranscript.trim() ? liveTranscript.trim() : null);
+      } catch (e) {
+        console.error('Error capturing transcript on skip:', e);
+        // Use live transcript as fallback
+        transcript = liveTranscript.trim() || null;
+      }
     }
     
     const taskResult: TaskResult = {
@@ -116,7 +133,7 @@ const SlideRealWords = () => {
       correct: null,
       responseTimeMs: Date.now() - itemStartTime,
       errorType: 'skipped',
-      transcript: null,
+      transcript,
     };
 
     addTask(taskResult);

@@ -4,7 +4,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useIntakeStore } from '@/store/intakeStore';
 import { sendIntakeData, validateResults, validateUserProfile, downloadJson, copyToClipboard } from '@/services/intakeService';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Send, LogOut, CheckCircle, AlertCircle } from 'lucide-react';
+import { Copy, Download, Send, LogOut, CheckCircle, AlertCircle, BookOpen } from 'lucide-react';
 import type { SessionResults, UserProfile } from '@/types/intake';
 
 const Export = () => {
@@ -265,6 +265,18 @@ const Export = () => {
             >
               <Send className="w-5 h-5" />
               <span>{isSending ? 'Sending...' : 'Send to Backend'}</span>
+            </button>
+          </div>
+
+          {/* Navigation to Reader */}
+          <div className="flex justify-center border-t-2 border-dashed border-foreground/20 pt-6">
+            <button
+              type="button"
+              onClick={() => navigate('/reader')}
+              className="px-8 py-4 font-headline font-bold text-xl border-2 border-foreground bg-primary/5 hover:bg-primary/10 transition-colors inline-flex items-center gap-3 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none"
+            >
+              <BookOpen className="w-6 h-6" />
+              <span>Enter Reading Studio</span>
             </button>
           </div>
 

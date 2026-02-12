@@ -44,18 +44,30 @@ const SlideRAN = () => {
     
     // Get transcript if voice mode
     if (useVoiceMode) {
-      const result = await stopAndTranscribe();
-      const text = (result.text ?? '').trim();
-      const resolved = text ? text : (liveTranscript.trim() ? liveTranscript.trim() : null);
+      try {
+        const result = await stopAndTranscribe();
+        const text = (result.text ?? '').trim();
+        const resolved = text ? text : (liveTranscript.trim() ? liveTranscript.trim() : null);
 
-      if (!resolved) {
-        // Don't let a verbal task submit with null transcript.
-        setSttError('No speech was captured. Please try again (make sure mic permission is allowed).');
-        await startRecording();
-        return;
+        if (!resolved) {
+          // Don't let a verbal task submit with null transcript.
+          setSttError('No speech was captured. Please try again (make sure mic permission is allowed).');
+          await startRecording();
+          return;
+        }
+
+        transcriptRef.current = resolved;
+      } catch (error) {
+        console.error('Error during stopAndTranscribe:', error);
+        // Fallback to liveTranscript
+        const fallback = liveTranscript.trim() || null;
+        if (!fallback) {
+          setSttError('No speech was captured. Please try again (make sure mic permission is allowed).');
+          await startRecording();
+          return;
+        }
+        transcriptRef.current = fallback;
       }
-
-      transcriptRef.current = resolved;
     }
 
     // Add as a task result

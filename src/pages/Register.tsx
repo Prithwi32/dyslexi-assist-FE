@@ -1,19 +1,25 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
+import { useIntakeStore } from '@/store/intakeStore';
 import { useToast } from '@/hooks/use-toast';
 
 const Register = () => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
+  const [age, setAge] = useState<number | ''>(10);
+  const [grade, setGrade] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { register } = useAuthStore();
+  const { resetIntake, setUserInfo } = useIntakeStore();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
@@ -22,16 +28,41 @@ const Register = () => {
       return;
     }
     
-    const result = register(username, password);
+    setIsSubmitting(true);
     
-    if (result.success) {
-      toast({
-        title: "Account created",
-        description: "Welcome! Let's begin your personalized assessment.",
+    try {
+      const result = await register({
+        email,
+        password,
+        name,
+        age: Number(age),
+        grade_level: grade,
+        metadata: {}
       });
-      navigate('/intake');
-    } else {
-      setError(result.error || 'Something went wrong. Please try again.');
+      
+      if (result.success) {
+        toast({
+          title: "Account created",
+          description: "Welcome! Let's begin your personalized assessment.",
+        });
+        
+        // Reset intake store for the new user and pre-fill known info
+        resetIntake();
+        setUserInfo({
+          name: name,
+          email: email,
+          age: Number(age),
+          gradeLevel: grade
+        });
+
+        navigate('/intake');
+      } else {
+        setError(result.error || 'Something went wrong. Please try again.');
+      }
+    } catch(err) {
+      setError('An unexpected error occurred.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -58,25 +89,83 @@ const Register = () => {
           </p>
           <div className="rule-thin mb-6" />
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="username" className="block font-headline font-bold mb-2">
-                Username
+              <label htmlFor="email" className="block font-headline font-bold mb-1">
+                Email Address
               </label>
               <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="input-newspaper"
-                placeholder="Choose a username"
+                placeholder="email@example.com"
                 required
-                minLength={3}
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="name" className="block font-headline font-bold mb-1">
+                Full Name
+              </label>
+              <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="input-newspaper"
+                placeholder="John Doe"
+                required
+                minLength={2}
               />
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="age" className="block font-headline font-bold mb-1">
+                  Age
+                </label>
+                <input
+                  id="age"
+                  type="number"
+                  value={age}
+                  onChange={(e) => setAge(Number(e.target.value))}
+                  className="input-newspaper"
+                  placeholder="10"
+                  required
+                  min={5}
+                  max={99}
+                />
+              </div>
+              <div>
+                <label htmlFor="grade" className="block font-headline font-bold mb-1">
+                  Grade Level
+                </label>
+                <select
+                  id="grade"
+                  value={grade}
+                  onChange={(e) => setGrade(e.target.value)}
+                  className="input-newspaper"
+                  required
+                >
+                  <option value="" disabled>Select</option>
+                  <option value="1st">1st Grade</option>
+                  <option value="2nd">2nd Grade</option>
+                  <option value="3rd">3rd Grade</option>
+                  <option value="4th">4th Grade</option>
+                  <option value="5th">5th Grade</option>
+                  <option value="6th">6th Grade</option>
+                  <option value="7th">7th Grade</option>
+                  <option value="8th">8th Grade</option>
+                  <option value="High School">High School</option>
+                  <option value="Adult">Adult</option>
+                </select>
+              </div>
+            </div>
+
             <div>
-              <label htmlFor="password" className="block font-headline font-bold mb-2">
+              <label htmlFor="password" className="block font-headline font-bold mb-1">
                 Password
               </label>
               <input
@@ -92,7 +181,7 @@ const Register = () => {
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block font-headline font-bold mb-2">
+              <label htmlFor="confirmPassword" className="block font-headline font-bold mb-1">
                 Confirm Password
               </label>
               <input
@@ -101,21 +190,23 @@ const Register = () => {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="input-newspaper"
-                placeholder="Type your password again"
+                placeholder="Confirm password"
                 required
+                minLength={4}
               />
             </div>
 
             {error && (
-              <div className="p-4 bg-accent border-2 border-foreground">
-                <p className="text-foreground font-body">{error}</p>
+              <div className="p-3 bg-accent border-2 border-foreground">
+                <p className="text-foreground font-body text-sm">{error}</p>
               </div>
             )}
 
-            <button type="submit" className="btn-newspaper-primary w-full">
-              Create Account
+            <button type="submit" disabled={isSubmitting} className="btn-newspaper-primary w-full disabled:opacity-50">
+              {isSubmitting ? 'Creating Account...' : 'Create Account'}
             </button>
           </form>
+
 
           <div className="rule-thin my-6" />
 

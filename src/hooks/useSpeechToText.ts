@@ -13,6 +13,7 @@ interface UseSTTOptions {
   onStart?: () => void;
   onStop?: (duration: number) => void;
   onTranscription?: (result: TranscriptionResult) => void;
+  onFinalResult?: (text: string) => void;
   onError?: (error: string) => void;
 }
 
@@ -151,6 +152,7 @@ export function useSpeechToText(options: UseSTTOptions = {}) {
         if (result.isFinal) {
           finalTranscriptRef.current = `${finalTranscriptRef.current} ${text}`.trim();
           interimTranscriptRef.current = '';
+          options.onFinalResult?.(text.trim());
         } else {
           interimTranscriptRef.current = text;
         }

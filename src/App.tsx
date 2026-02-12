@@ -8,6 +8,8 @@ import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Intake from "./pages/Intake";
 import Export from "./pages/Export";
+import Reader from "./pages/Reader";
+import ApiTest from "./pages/ApiTest";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +26,8 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/intake" element={<Intake />} />
           <Route path="/export" element={<Export />} />
+          <Route path="/reader" element={<Reader />} />
+          <Route path="/api-test" element={<ApiTest />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

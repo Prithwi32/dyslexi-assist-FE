@@ -1,0 +1,30 @@
+{
+  "id": "session123",
+  "userId": "user456",
+  "createdAt": "2024-06-10T12:34:56.789Z",
+  "gradeBand": "5-6",
+  "tasks": [
+    {
+      "taskId": "task1",
+      "type": "reading",
+      "difficulty": 2,
+      "correct": true,
+      "responseTimeMs": 1500,
+      "errorType": null,
+      "transcript": "The quick brown fox jumps over the lazy dog"
+    },
+    {
+      "taskId": "task2",
+      "type": "writing",
+      "difficulty": 3,
+      "correct": false,
+      "responseTimeMs": 2000,
+      "errorType": "spelling",
+      "transcript": null
+    }
+  ],
+  "flags": {
+    "avoidReadingAloud": false,
+    "highAnxietySignals": true
+  }
+}

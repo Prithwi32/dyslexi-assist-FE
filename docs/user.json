@@ -1,0 +1,22 @@
+{
+  "id": "user123",
+  "email": "student@example.com",
+  "name": "Jane Doe",
+  "age": 12,
+  "gradeLevel": "6",
+  "readingProfile": {
+    "baselineWpm": 120,
+    "baselineComprehension": 85,
+    "difficultyPatterns": ["long words", "homophones"],
+    "lastAssessedAt": "2024-06-10T12:00:00Z"
+  },
+  "preferences": {
+    "pacingPreference": "FAST",
+    "highlightColor": "#00FF00",
+    "fontSizeMultiplier": 1.2,
+    "enableVoiceFeedback": true,
+    "enableVisualHighlighting": false
+  },
+  "createdAt": "2024-06-10T12:34:56.789Z",
+  "updatedAt": "2024-06-10T12:34:56.789Z"
+}

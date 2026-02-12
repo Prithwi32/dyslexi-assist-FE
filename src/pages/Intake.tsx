@@ -38,13 +38,20 @@ const slideInfo = [
 const Intake = () => {
   const navigate = useNavigate();
   const { session, logout, isAuthenticated } = useAuthStore();
-  const { currentSlide, setCurrentSlide, nextSlide, prevSlide } = useIntakeStore();
+  const { currentSlide, setCurrentSlide, nextSlide, prevSlide, setUserInfo } = useIntakeStore();
 
   useEffect(() => {
     if (!isAuthenticated()) {
       navigate('/register');
+    } else if (session) {
+      // Ensure intake store user info matches current auth session
+      setUserInfo({
+        name: session.username,
+        email: session.username.includes('@') ? session.username : undefined, // crude guess if username is email
+        // We don't have age/grade in session, but that's fine, they come from profile or defaults
+      });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, session, setUserInfo]);
 
   const handleLogout = () => {
     logout();

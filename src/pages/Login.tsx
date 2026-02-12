@@ -1,31 +1,54 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
+import { useIntakeStore } from '@/store/intakeStore';
 import { useToast } from '@/hooks/use-toast';
 
 const Login = () => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   
   const { login } = useAuthStore();
+  const { userEmail: storedEmail, resetIntake, setUserInfo } = useIntakeStore();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsSubmitting(true);
     
-    const result = login(username, password);
-    
-    if (result.success) {
-      toast({
-        title: "Welcome back",
-        description: "Let's continue with your assessment.",
-      });
-      navigate('/intake');
-    } else {
-      setError(result.error || 'Something went wrong. Please try again.');
+    try {
+      const result = await login(email, password);
+      
+      if (result.success) {
+        toast({
+          title: "Welcome back",
+          description: "Login successful.",
+        });
+        
+        if (result.hasAssignments) {
+           navigate('/');
+        } else {
+           // If accessing intake, ensure we don't show another user's stale data
+           if (storedEmail !== email) {
+             resetIntake();
+             // We don't have full user details here easily without querying API again 
+             // or extending login return type, but reset is crucial.
+             // We can at least set the email.
+             setUserInfo({ email });
+           }
+           navigate('/intake');
+        }
+      } else {
+        setError(result.error || 'Something went wrong. Please try again.');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -54,16 +77,16 @@ const Login = () => {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="username" className="block font-headline font-bold mb-2">
-                Username
+              <label htmlFor="email" className="block font-headline font-bold mb-2">
+                Email Address
               </label>
               <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="input-newspaper"
-                placeholder="Enter your username"
+                placeholder="Enter your email"
                 required
               />
             </div>
@@ -89,8 +112,8 @@ const Login = () => {
               </div>
             )}
 
-            <button type="submit" className="btn-newspaper-primary w-full">
-              Log In
+            <button type="submit" disabled={isSubmitting} className="btn-newspaper-primary w-full disabled:opacity-50">
+              {isSubmitting ? 'Logging In...' : 'Log In'}
             </button>
           </form>
 
