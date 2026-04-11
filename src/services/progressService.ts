@@ -42,6 +42,15 @@ export const getUserProgress = async (
   return response.data;
 };
 
+export const getUserReport = async (
+  userId: string
+): Promise<{ success: boolean; report: string }> => {
+  const response = await apiClient.get<{ success: boolean; report: string }>(
+    `/user/${userId}/report`
+  );
+  return response.data;
+};
+
 /**
  * Helper function to calculate progress percentage
  */

@@ -156,15 +156,28 @@ export interface ConcentrationAnalysis {
   attention_span: string;
 }
 
+export interface ErrorDetected {
+  word_expected: string;
+  word_actual: string;
+  error_type: 'mispronunciation' | 'omission' | 'substitution' | 'addition';
+  severity: 'minor' | 'moderate' | 'major';
+}
+
+export interface PronunciationIssue {
+  word: string;
+  issue: string;
+  correction: string;
+}
+
 export interface ChunkAnalysis {
   reading_score: number;
-  performance_category: 'excellent' | 'good' | 'needs_improvement' | 'struggling';
-  errors_detected: string[];
+  performance_category: string;
+  errors_detected: ErrorDetected[];
   concentration_analysis: ConcentrationAnalysis;
-  pronunciation_issues: string[];
+  pronunciation_issues: PronunciationIssue[];
   feedback: string;
   intervention_needed: boolean;
-  intervention_message: string;
+  intervention_message: string | null;
 }
 
 export interface SessionInfo {
@@ -227,6 +240,14 @@ export interface SessionSummary {
   total_errors: number;
   completed: boolean;
   created_at: string;
+  chunks?: {
+    chunk_id: string;
+    transcript: string;
+    reading_score: number;
+    performance_category: string;
+    feedback: string;
+    errors_detected: ErrorDetected[];
+  }[];
 }
 
 export interface GetUserSessionsResponse extends ApiResponse {

@@ -12,6 +12,9 @@ const Index = () => {
 
   const [progress, setProgress] = useState<UserProgress | null>(null);
   const [recentSessions, setRecentSessions] = useState<SessionSummary[]>([]);
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
+  const [report, setReport] = useState<string | null>(null);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -19,6 +22,23 @@ const Index = () => {
        loadDashboardData(session.userId);
     }
   }, [loggedIn, session]);
+
+  const handleGenerateReport = async () => {
+    if (!session?.userId) return;
+    setIsGeneratingReport(true);
+    setReport(null);
+    try {
+      const res = await progressService.getUserReport(session.userId);
+      if (res.success && res.report) {
+        setReport(res.report);
+      }
+    } catch (e) {
+      console.error("Failed to generate report", e);
+      setReport("Failed to generate report. Please try again later.");
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
 
   const loadDashboardData = async (userId: string) => {
     setIsLoading(true);
@@ -185,25 +205,68 @@ const Index = () => {
 
               {/* Right Column: Recent Sessions */}
               <div className="newspaper-card h-fit">
-                 <h3 className="font-headline font-bold text-xl mb-4 flex items-center gap-2">
-                    <Clock className="w-5 h-5" /> Recent History
-                 </h3>
+                 <div className="flex items-center justify-between mb-4">
+                   <h3 className="font-headline font-bold text-xl flex items-center gap-2">
+                      <Clock className="w-5 h-5" /> Recent History
+                   </h3>
+                   {recentSessions.length > 0 && (
+                     <button 
+                       onClick={handleGenerateReport} 
+                       disabled={isGeneratingReport}
+                       className="text-xs bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 disabled:opacity-50"
+                     >
+                       {isGeneratingReport ? "Generating..." : "Get Report"}
+                     </button>
+                   )}
+                 </div>
                  <div className="rule-thick mb-4" />
+                 
+                 {report && (
+                   <div className="bg-muted p-4 rounded-md mb-6 border border-primary/20">
+                     <h4 className="font-bold text-sm mb-2">Reading Improvement Report</h4>
+                     <p className="text-sm whitespace-pre-wrap text-muted-foreground">{report}</p>
+                   </div>
+                 )}
                  
                  {recentSessions.length > 0 ? (
                     <ul className="space-y-4">
                        {recentSessions.map((sess) => (
                           <li key={sess.session_id} className="pb-4 border-b border-dashed border-primary/20 last:border-0">
-                             <div className="flex justify-between items-start mb-1">
+                             <div 
+                               className="flex justify-between items-start mb-1 cursor-pointer hover:bg-foreground/5 p-1 rounded"
+                               onClick={() => setExpandedSessionId(expandedSessionId === sess.session_id ? null : sess.session_id)}
+                             >
                                 <span className="font-bold font-headline text-sm line-clamp-1">{sess.file_name}</span>
-                                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                  {new Date(sess.start_time * 1000).toLocaleDateString()}
+                                <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
+                                  {new Date(sess.created_at || Date.now()).toLocaleDateString()}
                                 </span>
                              </div>
-                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                             <div className="flex items-center gap-2 text-xs text-muted-foreground pl-1">
                                 <Star className="w-3 h-3 text-yellow-600" />
                                 <span>Score: {Math.round(sess.average_score * 100)}%</span>
                              </div>
+
+                             {expandedSessionId === sess.session_id && sess.chunks && (
+                               <div className="mt-3 pl-2 border-l-2 border-primary/30 space-y-3">
+                                 {sess.chunks.length > 0 ? sess.chunks.map((chunk, i) => (
+                                   <div key={chunk.chunk_id || i} className="text-xs space-y-1">
+                                     <p className="text-muted-foreground italic">"{chunk.transcript}"</p>
+                                     {chunk.errors_detected?.length > 0 && (
+                                       <div className="flex flex-wrap gap-1 mt-1">
+                                         {chunk.errors_detected.map((err, j) => (
+                                           <span key={j} className="bg-red-100 text-red-800 px-1 rounded text-[10px]">
+                                             {err.word_actual} ({err.error_type})
+                                           </span>
+                                         ))}
+                                       </div>
+                                     )}
+                                     <p className="font-medium text-primary mt-1">{chunk.feedback}</p>
+                                   </div>
+                                 )) : (
+                                   <p className="text-xs text-muted-foreground">No reading chunks recorded.</p>
+                                 )}
+                               </div>
+                             )}
                           </li>
                        ))}
                     </ul>
